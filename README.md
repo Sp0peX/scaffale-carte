@@ -1,4 +1,3 @@
-# Scaffale Carte
 
 Collezione di carte Magic: The Gathering su scaffali, con consigli di mazzo per formato.
 

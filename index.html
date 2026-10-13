@@ -142,6 +142,13 @@ h2.sect small{color:var(--mut);letter-spacing:.04em;text-transform:none;font-wei
 .mbox{display:flex;gap:24px;max-width:860px;width:100%;max-height:92vh;overflow:auto;background:#0b1320;border:1px solid var(--acc);box-shadow:0 0 40px #3de0ff44;padding:22px}
 .mbox img{width:300px;max-width:42vw;border-radius:4.7%;align-self:flex-start;box-shadow:0 10px 30px #000}
 .mbox h2{margin:0 0 4px}
+.addgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:14px}
+.res{position:relative;cursor:pointer;transition:transform .15s}
+.res:hover{transform:translateY(-4px)}
+.res img,.res .ph{width:100%;aspect-ratio:488/680;border-radius:4.7%;display:block;background:#161d2b}
+.res:not(.has) img{opacity:.8}
+.res .n{position:absolute;right:-3px;bottom:6px;background:var(--acc);color:#04121a;font:700 12px Consolas,monospace;padding:1px 6px;border-radius:9px}
+.res .minus{position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;border:1px solid #ff6b5b;background:#190500e6;color:#ff6b5b;font-weight:700;line-height:1;padding:0}
 .mbox .ty{color:var(--mut);margin-bottom:10px}
 .mbox pre{white-space:pre-wrap;font:13px/1.5 "Segoe UI";background:#070c15;padding:10px;border:1px solid var(--line)}
 .leg{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
@@ -163,6 +170,7 @@ h2.sect small{color:var(--mut);letter-spacing:.04em;text-transform:none;font-wei
     <button data-t="shelf" class="on">Scaffali</button>
     <button data-t="decks">Mazzi consigliati</button>
     <button data-t="import">Importa lista</button>
+    <button class="btn" id="addbtn" style="margin-left:auto">+ Aggiungi carta</button>
   </nav>
   <div class="filters" id="filters">
     <input type="search" id="q" placeholder="Cerca carta o testo…">
@@ -873,6 +881,59 @@ function openFix(e){
   $('#mbox').onclick=null;
   search();
 }
+
+/* ---------- Cerca e aggiungi carte ---------- */
+function ownedCopies(card){
+  const k=card.name.toLowerCase(),f=k.split(' // ')[0];
+  const e=coll.find(x=>{const n=x.name.toLowerCase();return n===k||n===f});return e?e.n:0;
+}
+function changeCopies(card,delta){
+  const s=slim(card);
+  cache[card.name.toLowerCase()]=s;
+  if(card.name.includes(' // '))cache[card.name.split(' // ')[0].toLowerCase()]=s;
+  const k=card.name.toLowerCase(),f=k.split(' // ')[0];
+  let e=coll.find(x=>{const n=x.name.toLowerCase();return n===k||n===f});
+  if(!e){if(delta<=0)return;e={name:card.name,n:0};coll.push(e)}
+  e.n+=delta;e.nf=false;
+  if(e.n<=0)coll=coll.filter(x=>x!==e);
+  save('mtg.cache',cache);save('mtg.coll',coll);render();
+}
+function openAdd(){
+  $('#mbox').innerHTML=`<div style="flex:1;min-width:0;width:100%"><h2>Aggiungi carte alla collezione</h2>
+    <input type="search" id="addq" placeholder="Cerca per nome (inglese), es. Sol Ring" style="width:100%;background:#070c15;border:1px solid var(--line);padding:9px 12px" autocomplete="off">
+    <p class="hint" style="margin:6px 0 0">Clicca una carta per aggiungerne una copia. Il tasto − la toglie. Puoi usare anche la sintassi di Scryfall (es. <code>t:dragon c:r</code>).</p>
+    <div id="addres" class="addgrid"></div></div>`;
+  $('#modal').classList.add('on');$('#mbox').onclick=null;
+  let results=[],timer;
+  const inp=$('#addq'),box=$('#addres');
+  const img=c=>{const f=c.card_faces&&c.card_faces[0];return(c.image_uris||(f&&f.image_uris)||{}).small||''};
+  const draw=()=>{box.innerHTML=results.map((c,i)=>{const n=ownedCopies(c);
+    return `<div class="res${n?' has':''}" data-i="${i}" title="${esc(c.name)}">${img(c)?`<img loading="lazy" src="${img(c)}" alt="">`:`<div class="ph">${esc(c.name)}</div>`}
+      ${n?`<span class="n">×${n}</span><button class="minus" data-m="${i}">−</button>`:''}</div>`}).join('')};
+  async function go(){
+    const q=inp.value.trim();if(q.length<2){box.innerHTML='';return}
+    box.innerHTML='<span class="hint">Cerco…</span>';
+    try{
+      const r=await fetch(`${SF}/cards/search?q=${encodeURIComponent(q)}&unique=cards&order=name`);
+      if(!r.ok){box.innerHTML='<span class="hint">Nessun risultato.</span>';return}
+      const j=await r.json();const ql=q.toLowerCase();
+      const rank=c=>{const n=c.name.toLowerCase();return n===ql?0:n.startsWith(ql)?1:n.includes(ql)?2:3};
+      j.data.sort((a,b)=>rank(a)-rank(b));
+      results=j.data.slice(0,60);
+      draw();
+      if(j.data.length>60)box.insertAdjacentHTML('beforeend',`<span class="hint" style="grid-column:1/-1">Mostrati 60 di ${j.total_cards}: restringi la ricerca.</span>`);
+    }catch(err){box.innerHTML='<span class="hint">Errore di rete: '+esc(err.message)+'</span>'}
+  }
+  inp.oninput=()=>{clearTimeout(timer);timer=setTimeout(go,350)};
+  inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);go()}};
+  box.onclick=e=>{
+    const m=e.target.dataset.m;
+    if(m!==undefined){changeCopies(results[m],-1);draw();return}
+    const r=e.target.closest('.res');if(r){changeCopies(results[r.dataset.i],1);draw()}
+  };
+  inp.focus();
+}
+$('#addbtn').onclick=openAdd;
 
 function openCard(name){
   const e=coll.find(x=>x.name===name);if(!e)return;

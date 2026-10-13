@@ -95,6 +95,39 @@ main{padding:22px 18px 80px;max-width:1700px;margin:0 auto}
 .empty{padding:90px 20px;text-align:center;color:var(--mut)}
 .empty h2{color:var(--txt);letter-spacing:.1em}
 
+/* ---------- Tendine ---------- */
+[data-toggle]{cursor:pointer;user-select:none}
+.chev::before{content:"▾";display:inline-block;width:16px}
+.closed .chev::before{content:"▸"}
+.divtab .chev{margin-right:2px}
+.bay.closed{padding-bottom:0}
+.bay.closed .stack{display:none}
+.bay.closed .divtab{margin-bottom:0;border-radius:3px}
+.group.closed .unit{display:none}
+.group.closed{margin-bottom:14px}
+/* ---------- Scatolone ---------- */
+.box{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(var(--cw) + 34px),1fr));gap:18px;align-items:start;
+  padding:22px 18px 26px;
+  background:repeating-linear-gradient(90deg,#9b7648 0 3px,#8f6b40 3px 7px),#8f6b40;
+  border:3px solid #5d4224;border-radius:4px;box-shadow:inset 0 0 50px #2a1a0a99,0 16px 34px #000a;
+  position:relative;
+}
+.box::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(#0000 80%,#2a1a0a55)}
+.bay{position:relative;padding:0 8px 12px;background:linear-gradient(#1a120a,#0d0905);border:2px solid #4b341b;box-shadow:inset 0 0 18px #000,0 4px 10px #0007;border-radius:2px}
+.divtab{
+  position:relative;margin:0 -10px 10px -2px;padding:7px 12px;border-radius:3px 3px 0 0;
+  font:700 12px/1 Georgia,serif;letter-spacing:.12em;text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;box-shadow:0 3px 6px #0009,inset 0 1px 0 #fff6;
+}
+.divtab em{font:700 12px Consolas,monospace;font-style:normal;opacity:.75}
+.stack{display:flex;flex-direction:column;align-items:center}
+.bc{position:relative;width:var(--cw);height:var(--strip);overflow:hidden;border-radius:4.7% 4.7% 0 0;margin-bottom:2px;
+  cursor:pointer;transition:height .22s ease,box-shadow .2s;box-shadow:0 -2px 6px #000b;background:#161d2b}
+.bc img{width:100%;display:block;border-radius:4.7%}
+.bc:hover{height:var(--full);z-index:6;box-shadow:0 0 16px #3de0ffaa;border-radius:4.7%}
+.bc .n{position:absolute;right:4px;top:3px;background:var(--acc);color:#04121a;font:700 11px Consolas,monospace;padding:0 6px;border-radius:9px;box-shadow:0 0 6px #000}
+
 /* ---------- Import ---------- */
 .panel{border:1px solid var(--line);background:#0b1320cc;padding:18px;margin-bottom:20px;position:relative}
 .panel h2{margin:0 0 12px;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc)}
@@ -190,6 +223,7 @@ h2.sect small{color:var(--mut);letter-spacing:.04em;text-transform:none;font-wei
       <option value="price">Ordina: prezzo</option>
       <option value="n">Ordina: copie</option>
     </select>
+    <button class="btn sec" id="allfold" title="Chiudi o apri tutte le tendine">Chiudi/apri tutto</button>
     <label class="zoom">Zoom <input type="range" id="zoom" min="90" max="240" value="150"></label>
   </div>
   <div id="progress"><i></i></div>
@@ -347,9 +381,9 @@ function visible(){
     return true;
   });
 }
-function groupKey(c,e){
+function groupKey(c,e,mode=ui.group){
   if(!c)return e.nf?['⚠ Da sistemare',-1]:['In caricamento',99];
-  switch(ui.group){
+  switch(mode){
     case 'color':
       if(isLand(c))return['Terre',8];
       if(c.col.length>1)return['Multicolore',6];
@@ -385,6 +419,7 @@ function renderShelf(){
   }
   const items=visible();
   if(!items.length){main.innerHTML='<div class="empty"><h2>Nessuna carta con questi filtri</h2></div>';return}
+  if(ui.view==='box')return renderBox(items);
   const groups=new Map();
   items.forEach(it=>{const[k,o]=groupKey(it.c,it.e);if(!groups.has(k))groups.set(k,{o,list:[]});groups.get(k).list.push(it)});
   const cw=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cw'));
@@ -394,12 +429,36 @@ function renderShelf(){
   [...groups.entries()].sort((a,b)=>a[1].o-b[1].o).forEach(([k,g])=>{
     g.list.sort(sorters[ui.sort]);
     const tot=g.list.reduce((s,x)=>s+x.e.n,0);
-    html+=`<section class="group"><div class="plate">${esc(k)}<em>${g.list.length} uniche · ${tot} copie</em></div><div class="unit">`;
+    html+=`<section class="group${collapsed.has(k)?' closed':''}"><div class="plate" data-toggle="${esc(k)}"><span class="chev"></span>${esc(k)}<em>${g.list.length} uniche · ${tot} copie</em></div><div class="unit">`;
     for(let i=0;i<g.list.length;i+=perRow)
       html+=`<div class="row">${g.list.slice(i,i+perRow).map(x=>cardEl(x.e,x.c)).join('')}</div>`;
     html+='</div></section>';
   });
   main.innerHTML=html;
+}
+
+const collapsed=new Set(load('mtg.collapsed',[]));
+/* ---------- Vista scatolone ---------- */
+const TABCOL={'Bianco':['#f6f1d8','#2a2410'],'Blu':['#58a7e8','#06182a'],'Nero':['#5b4a63','#fff'],'Rosso':['#e8583b','#2a0a03'],'Verde':['#3d9a58','#04170a'],
+  'Multicolore':['#e0b84a','#2a2004'],'Incolore / Artefatti':['#b7b7b7','#1a1a1a'],'Terre':['#9a7650','#fff'],'⚠ Da sistemare':['#ff6b5b','#190500']};
+function renderBox(items){
+  const cw=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cw'));
+  const full=cw*1.395,strip=Math.round(full*.15);
+  const groups=new Map();
+  items.forEach(it=>{const[k,o]=groupKey(it.c,it.e,'color');if(!groups.has(k))groups.set(k,{o,list:[]});groups.get(k).list.push(it)});
+  let html=`<div class="box" style="--strip:${strip}px;--full:${Math.round(full)}px">`;
+  [...groups.entries()].sort((a,b)=>a[1].o-b[1].o).forEach(([k,g])=>{
+    g.list.sort(sorters[ui.sort]);
+    const tot=g.list.reduce((s,x)=>s+x.e.n,0);
+    const [bg,fg]=TABCOL[k]||['#999','#111'];
+    html+=`<section class="bay${collapsed.has(k)?' closed':''}"><div class="divtab" data-toggle="${esc(k)}" style="background:${bg};color:${fg}"><span class="chev"></span>${esc(k)}<em>${tot}</em></div><div class="stack">`+
+      g.list.map(({e,c})=>{
+        const src=c?(cw>170?c.il:c.im):'';
+        const inner=src?`<img loading="lazy" src="${src}" alt="${esc(c.n)}">`:`<div class="ph ${e.nf?'nf':''}" style="height:var(--strip)">${esc(e.name)}</div>`;
+        return `<div class="bc" data-name="${esc(e.name)}" title="${esc(e.name)}">${inner}${e.n>1?`<span class="n">×${e.n}</span>`:''}</div>`;
+      }).join('')+`</div></section>`;
+  });
+  $('#main').innerHTML=html+'</div>';
 }
 
 /* ---------- Stats ---------- */
@@ -970,7 +1029,14 @@ function render(){
 }
 $('#tabs').onclick=e=>{if(e.target.dataset.t)setTab(e.target.dataset.t)};
 $('#main').addEventListener('click',e=>{
-  const card=e.target.closest('.card[data-name]');
+  const tg=e.target.closest('[data-toggle]');
+  if(tg){
+    const sec=tg.closest('.bay,.group'),k=tg.dataset.toggle;
+    sec.classList.toggle('closed');
+    sec.classList.contains('closed')?collapsed.add(k):collapsed.delete(k);
+    save('mtg.collapsed',[...collapsed]);return;
+  }
+  const card=e.target.closest('.card[data-name],.bc[data-name]');
   if(card&&ui.tab==='shelf'){openCard(card.dataset.name);return}
   if(card&&ui.tab==='decks'){openCard(card.dataset.name);return}
   const f=e.target.dataset.f;if(f){ui.deckFmt=f;renderDecks();return}
@@ -981,6 +1047,14 @@ $('#main').addEventListener('click',e=>{
 });
 // openCard per carte dei mazzi non in collezione con lo stesso nome: funziona perché le carte consigliate sono possedute
 
+ui.view='shelf';
+$('#allfold').onclick=()=>{
+  const secs=[...document.querySelectorAll('#main .bay,#main .group')];
+  const anyOpen=secs.some(s=>!s.classList.contains('closed'));
+  secs.forEach(s=>{const k=s.querySelector('[data-toggle]').dataset.toggle;
+    s.classList.toggle('closed',anyOpen);anyOpen?collapsed.add(k):collapsed.delete(k)});
+  save('mtg.collapsed',[...collapsed]);
+};
 $('#q').oninput=e=>{ui.q=e.target.value;renderShelf()};
 $('#ftype').onchange=e=>{ui.type=e.target.value;renderShelf()};
 $('#ffmt').onchange=e=>{ui.fmt=e.target.value;renderShelf()};

@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scaffale Carte</title>
+<style>
+:root{
+  --bg:#0a0e17; --bg2:#101827; --line:#1f3a52; --acc:#3de0ff; --acc2:#ffb347; --txt:#d7e6f2; --mut:#7f95a8;
+  --cw:150px; --gap:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,sans-serif}
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(1200px 600px at 50% -10%,#16304a55,transparent 70%),
+    repeating-linear-gradient(90deg,#0c121d 0 38px,#0a0f19 38px 40px),var(--bg);
+}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+
+/* ---------- HUD top ---------- */
+header.hud{
+  position:sticky;top:0;z-index:50;padding:10px 18px 12px;
+  background:linear-gradient(#0a0e17f2,#0a0e17d8);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+}
+header.hud::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:.7}
+.top{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+h1{margin:0;font:700 18px/1 "Segoe UI",sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--acc);text-shadow:0 0 14px #3de0ff88}
+h1 small{color:var(--mut);letter-spacing:.1em;font-weight:400}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+.stat{border:1px solid var(--line);background:#0d1726;padding:4px 12px;min-width:92px;position:relative;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.stat b{display:block;font:600 18px/1.1 "Consolas",monospace;color:var(--acc)}
+.stat span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+nav.tabs{display:flex;gap:6px;margin-top:10px}
+nav.tabs button{background:#0d1726;border:1px solid var(--line);padding:6px 16px;letter-spacing:.1em;text-transform:uppercase;font-size:12px;color:var(--mut)}
+nav.tabs button.on{color:#04121a;background:var(--acc);border-color:var(--acc);box-shadow:0 0 14px #3de0ff66}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.filters input[type=search],.filters select{background:#0d1726;border:1px solid var(--line);padding:6px 10px;border-radius:2px;min-width:0}
+.filters input[type=search]{width:200px}
+.chips{display:flex;gap:4px}
+.chip{width:28px;height:28px;border-radius:50%;border:2px solid #0000;display:grid;place-items:center;font:700 12px "Segoe UI";color:#111;opacity:.45;padding:0}
+.chip.on{opacity:1;border-color:#fff;box-shadow:0 0 10px currentColor}
+.chip[data-c=W]{background:#f6f1d8;color:#f6f1d8}.chip[data-c=U]{background:#58a7e8;color:#58a7e8}
+.chip[data-c=B]{background:#5b4a63;color:#9a82a8}.chip[data-c=R]{background:#e8583b;color:#e8583b}
+.chip[data-c=G]{background:#3d9a58;color:#3d9a58}.chip[data-c=C]{background:#b7b7b7;color:#b7b7b7}
+.chip span{color:#111}
+.zoom{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:12px}
+.zoom input{accent-color:var(--acc);width:110px}
+.btn{background:#0d1726;border:1px solid var(--acc);color:var(--acc);padding:6px 14px;letter-spacing:.08em;text-transform:uppercase;font-size:12px}
+.btn:hover{background:var(--acc);color:#04121a}
+.btn.sec{border-color:var(--line);color:var(--txt)}
+.btn.sec:hover{border-color:var(--acc);background:#0d1726;color:var(--acc)}
+.btn.warn{border-color:#ff6b5b;color:#ff6b5b}.btn.warn:hover{background:#ff6b5b;color:#190500}
+
+#progress{height:3px;background:#0000;margin:0 -18px -12px}
+#progress i{display:block;height:100%;width:0;background:var(--acc);box-shadow:0 0 10px var(--acc);transition:width .2s}
+
+/* ---------- Scaffali ---------- */
+main{padding:22px 18px 80px;max-width:1700px;margin:0 auto}
+.group{margin-bottom:34px}
+.plate{
+  display:inline-block;margin:0 0 10px 10px;padding:5px 18px;
+  font:600 13px/1 Georgia,serif;letter-spacing:.14em;text-transform:uppercase;color:#2a1805;
+  background:linear-gradient(#e8c680,#b98a3e);border:1px solid #6b4a1a;border-radius:2px;
+  box-shadow:0 2px 6px #000a,inset 0 1px 0 #fff6;
+}
+.plate em{font-style:normal;opacity:.65;margin-left:8px}
+.unit{
+  position:relative;padding:14px 14px 0;
+  background:linear-gradient(#05080e,#0c1220);
+  border:10px solid #5a3a17;border-image:linear-gradient(#7b5226,#43280c) 1;
+  box-shadow:inset 0 0 40px #000c,0 14px 30px #0009;
+}
+.row{position:relative;display:flex;gap:var(--gap);padding:6px 6px 17px;margin-bottom:6px;min-height:calc(var(--cw)*1.395 + 30px)}
+.row::after{
+  content:"";position:absolute;left:-14px;right:-14px;bottom:0;height:18px;
+  background:linear-gradient(#a8743a,#7a4f22 45%,#4a2d10);
+  box-shadow:0 12px 18px #000b,inset 0 2px 0 #ffd9a055;
+}
+.card{
+  position:relative;flex:0 0 var(--cw);width:var(--cw);aspect-ratio:488/680;align-self:flex-end;
+  margin-bottom:-1px;transform-origin:50% 100%;transition:transform .18s ease,filter .18s;cursor:pointer;
+}
+.card img,.card .ph{width:100%;height:100%;display:block;border-radius:4.7%;background:#161d2b}
+.card img{box-shadow:0 6px 10px #000b}
+.card.s2 img{box-shadow:4px -3px 0 #232c3d,0 6px 10px #000b}
+.card.s3 img{box-shadow:4px -3px 0 #232c3d,8px -6px 0 #19202e,0 6px 10px #000b}
+.card:hover{transform:translateY(-16px) scale(1.07);z-index:9;filter:drop-shadow(0 0 12px #3de0ffaa)}
+.card .n{position:absolute;right:-4px;bottom:8px;background:var(--acc);color:#04121a;font:700 12px "Consolas",monospace;padding:1px 6px;border-radius:9px;box-shadow:0 0 8px #000}
+.ph{border:1px dashed #3a4a60;display:grid;place-items:center;text-align:center;font-size:11px;padding:8px;color:var(--mut)}
+.ph.nf{border-color:#ff6b5b;color:#ff9f95}
+.empty{padding:90px 20px;text-align:center;color:var(--mut)}
+.empty h2{color:var(--txt);letter-spacing:.1em}
+
+/* ---------- Import ---------- */
+.panel{border:1px solid var(--line);background:#0b1320cc;padding:18px;margin-bottom:20px;position:relative}
+.panel h2{margin:0 0 12px;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc)}
+textarea#txt{width:100%;height:260px;background:#070c15;border:1px solid var(--line);padding:10px;font:13px/1.4 Consolas,monospace;resize:vertical}
+.drop{border:2px dashed var(--line);padding:26px;text-align:center;color:var(--mut);margin-bottom:12px}
+.drop.over{border-color:var(--acc);color:var(--acc);background:#3de0ff10}
+.row-btn{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.hint{color:var(--mut);font-size:12px;margin-top:8px;line-height:1.5}
+.nflist{font:12px Consolas,monospace;color:#ff9f95;margin-top:8px;max-height:140px;overflow:auto}
+
+/* ---------- Mazzi ---------- */
+.fmts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.fmts button{background:#0d1726;border:1px solid var(--line);padding:8px 16px;letter-spacing:.08em;text-transform:uppercase;font-size:12px;color:var(--mut)}
+.fmts button.on{border-color:var(--acc2);color:var(--acc2);box-shadow:0 0 12px #ffb34744}
+.deck{border:1px solid var(--line);background:linear-gradient(#0d1726,#09101b);margin-bottom:22px;position:relative}
+.deck::before{content:"";position:absolute;left:0;top:0;width:4px;height:100%;background:var(--acc2)}
+.dhead{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 18px 6px 22px}
+.dhead h3{margin:0;font-size:17px;letter-spacing:.04em}
+.tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--acc2);color:var(--acc2);padding:2px 8px}
+.pips{display:flex;gap:3px}
+.pip{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;font:700 10px/1 "Segoe UI";font-style:normal;background:#aaa;color:#111;vertical-align:middle}
+.pW{background:#f6f1d8}.pU{background:#58a7e8}.pB{background:#6e5a78;color:#fff}.pR{background:#e8583b}.pG{background:#3d9a58}
+.meter{flex:1;min-width:160px;max-width:300px}
+.meter .bar{height:8px;background:#162235;border:1px solid var(--line)}
+.meter .bar i{display:block;height:100%;background:linear-gradient(90deg,#2aa6c4,var(--acc));box-shadow:0 0 8px var(--acc)}
+.meter small{color:var(--mut);font-size:11px}
+.dbody{padding:4px 18px 16px 22px}
+.curve{display:flex;gap:5px;align-items:flex-end;height:46px;margin:8px 0}
+.curve div{width:26px;text-align:center;font-size:10px;color:var(--mut)}
+.curve div i{display:block;background:var(--acc2);margin-bottom:2px;min-height:2px;opacity:.85}
+.tip{border-left:2px solid var(--acc);padding:6px 12px;background:#3de0ff0d;font-size:13px;margin:10px 0;line-height:1.5}
+h2.sect{margin:26px 0 14px;font-size:15px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc2);border-bottom:1px solid var(--line);padding-bottom:6px}
+h2.sect small{color:var(--mut);letter-spacing:.04em;text-transform:none;font-weight:400}
+.card.miss img{filter:grayscale(1) brightness(.55)}
+.deck.meta::before{background:var(--acc)}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.thumbs .card{--cw:84px;flex:0 0 84px;width:84px}
+.thumbs .card:hover{transform:translateY(-6px) scale(1.12)}
+.thumbs .card .n{right:2px;bottom:4px}
+.lands{font-size:12px;color:var(--mut);margin-top:8px}
+
+/* ---------- Modal ---------- */
+#modal{position:fixed;inset:0;background:#000c;z-index:100;display:none;place-items:center;padding:20px}
+#modal.on{display:grid}
+.mbox{display:flex;gap:24px;max-width:860px;width:100%;max-height:92vh;overflow:auto;background:#0b1320;border:1px solid var(--acc);box-shadow:0 0 40px #3de0ff44;padding:22px}
+.mbox img{width:300px;max-width:42vw;border-radius:4.7%;align-self:flex-start;box-shadow:0 10px 30px #000}
+.mbox h2{margin:0 0 4px}
+.mbox .ty{color:var(--mut);margin-bottom:10px}
+.mbox pre{white-space:pre-wrap;font:13px/1.5 "Segoe UI";background:#070c15;padding:10px;border:1px solid var(--line)}
+.leg{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.leg span{font-size:11px;padding:2px 8px;border:1px solid #2c4a3a;color:#6fe3a2;text-transform:capitalize}
+.leg span.no{border-color:#3a2c2c;color:#7a5a5a}
+.qty{display:flex;gap:10px;align-items:center;margin-top:12px}
+.qty b{font:700 20px Consolas;min-width:30px;text-align:center}
+@media(max-width:700px){.mbox{flex-direction:column}.mbox img{width:220px;max-width:100%}}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0b1320;border:1px solid var(--acc);padding:10px 20px;z-index:200;display:none;box-shadow:0 0 20px #3de0ff55}
+</style>
+</head>
+<body>
+<header class="hud">
+  <div class="top">
+    <h1>Scaffale <small>// carte</small></h1>
+    <div class="stats" id="stats"></div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-t="shelf" class="on">Scaffali</button>
+    <button data-t="decks">Mazzi consigliati</button>
+    <button data-t="import">Importa lista</button>
+  </nav>
+  <div class="filters" id="filters">
+    <input type="search" id="q" placeholder="Cerca carta o testo…">
+    <div class="chips" id="chips"></div>
+    <select id="ftype"><option value="">Ogni tipo</option></select>
+    <select id="ffmt"><option value="">Ogni formato</option></select>
+    <select id="group">
+      <option value="color">Raggruppa: colore</option>
+      <option value="type">Raggruppa: tipo</option>
+      <option value="cmc">Raggruppa: costo</option>
+      <option value="rarity">Raggruppa: rarità</option>
+      <option value="none">Nessun gruppo</option>
+    </select>
+    <select id="sort">
+      <option value="cmc">Ordina: costo</option>
+      <option value="name">Ordina: nome</option>
+      <option value="price">Ordina: prezzo</option>
+      <option value="n">Ordina: copie</option>
+    </select>
+    <label class="zoom">Zoom <input type="range" id="zoom" min="90" max="240" value="150"></label>
+  </div>
+  <div id="progress"><i></i></div>
+</header>
+
+<main id="main"></main>
+
+<div id="modal"><div class="mbox" id="mbox"></div></div>
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   Scaffale Carte — collezione MTG con dati da Scryfall
+   ========================================================= */
+const FORMATS={standard:'Standard',pioneer:'Pioneer',modern:'Modern',legacy:'Legacy',pauper:'Pauper',historic:'Historic',commander:'Commander'};
+const COLORS={W:'Bianco',U:'Blu',B:'Nero',R:'Rosso',G:'Verde'};
+const BASIC={W:'Plains',U:'Island',B:'Swamp',R:'Mountain',G:'Forest'};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){toast('Spazio del browser pieno: la cache non è stata salvata')}};
+
+let coll=load('mtg.coll',[]);     // [{name,n,nf?}]
+let cache=load('mtg.cache',{});   // nomeLower -> carta ridotta
+const ui={tab:'shelf',group:'color',sort:'cmc',q:'',colors:new Set(),type:'',fmt:'',deckFmt:'commander'};
+
+const C=e=>cache[e.name.toLowerCase()];
+const isLand=c=>/\bLand\b/.test(c.t);
+const isBasic=c=>/Basic Land/.test(c.t);
+const isCreature=c=>/\bCreature\b/.test(c.t);
+const isLegend=c=>/Legendary/.test(c.t);
+
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',3500)}
+const mana=s=>esc(s||'').replace(/\{([^}]+)\}/g,(m,x)=>`<i class="pip p${x.replace('/','').charAt(0)}">${x.length>2?'':x}</i>`);
+
+/* ---------- Parsing del file txt ---------- */
+function csvRows(text){
+  const rows=[];let row=[],f='',q=false;
+  text=text.replace(/^﻿/,'');
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}
+    else if(ch==='"')q=true;
+    else if(ch===','){row.push(f);f=''}
+    else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(f);f='';if(row.some(x=>x.trim()))rows.push(row);row=[]}
+    else f+=ch;
+  }
+  row.push(f);if(row.some(x=>x.trim()))rows.push(row);
+  return rows;
+}
+// Export CSV di ManaBox (e simili): colonne Name + Quantity
+function parseCSV(text){
+  const rows=csvRows(text);
+  const h=rows[0].map(x=>x.trim().toLowerCase());
+  const iN=h.indexOf('name'),iQ=h.findIndex(x=>x==='quantity'||x==='count'||x==='qty');
+  const map=new Map();
+  for(const r of rows.slice(1)){
+    const name=(r[iN]||'').trim(),n=parseInt(r[iQ])||1;
+    if(!name)continue;
+    const k=name.toLowerCase(),e=map.get(k);
+    if(e)e.n+=n;else map.set(k,{name,n});
+  }
+  return[...map.values()];
+}
+function isCSV(text){
+  const first=(text.replace(/^﻿/,'').split(/\r?\n/).find(l=>l.trim())||'').toLowerCase();
+  return first.includes(',')&&/(^|,)"?name"?(,|$)/.test(first)&&/quantity|count|qty/.test(first);
+}
+function parseList(text){
+  if(isCSV(text))return parseCSV(text);
+  const map=new Map();
+  for(let line of text.split(/\r?\n/)){
+    line=line.trim();
+    if(!line||line.startsWith('//')||line.startsWith('#'))continue;
+    if(/^(deck|sideboard|commander|companion|maybeboard|mainboard|about|name)\s*:?.*$/i.test(line)&&!/^\d/.test(line)&&line.length<24&&/^(deck|sideboard|commander|companion|maybeboard|mainboard)\s*:?$/i.test(line))continue;
+    let n=1,name=line,m;
+    if(m=line.match(/^(\d+)\s*[xX]?\s+(.+)$/)){n=+m[1];name=m[2]}
+    else if(m=line.match(/^(.+?)\s+[xX](\d+)$/)){name=m[1];n=+m[2]}
+    name=name.replace(/\s+\([A-Za-z0-9]{2,6}\)(\s+\S+)?$/,'').replace(/\s+\*[A-Za-z]+\*$/,'').replace(/\s+\[[^\]]*\]$/,'').trim();
+    if(!name)continue;
+    const k=name.toLowerCase();
+    const e=map.get(k);
+    if(e)e.n+=n;else map.set(k,{name,n});
+  }
+  return [...map.values()];
+}
+
+/* ---------- Scryfall ---------- */
+const KEEP=Object.keys(FORMATS);
+function slim(c){
+  const f=c.card_faces&&c.card_faces[0];
+  const img=c.image_uris||(f&&f.image_uris)||{};
+  return{
+    n:c.name,mc:c.mana_cost||(f&&f.mana_cost)||'',cmc:c.cmc||0,t:c.type_line||'',
+    ci:c.color_identity||[],col:c.colors||(f&&f.colors)||[],
+    o:c.oracle_text||(c.card_faces||[]).map(x=>x.oracle_text||'').join('\n—\n'),
+    lg:KEEP.filter(k=>c.legalities&&c.legalities[k]==='legal'),
+    im:img.small||'',il:img.normal||img.small||'',
+    p:parseFloat((c.prices&&(c.prices.eur||c.prices.usd))||0)||0,
+    r:c.rarity,s:(c.set||'').toUpperCase(),er:c.edhrec_rank||0,kw:c.keywords||[]
+  };
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function fetchMissing(retryNF=false){
+  const need=coll.filter(e=>!C(e)&&(retryNF||!e.nf));
+  if(!need.length)return;
+  const bar=$('#progress i');let done=0;
+  for(let i=0;i<need.length;i+=75){
+    const chunk=need.slice(i,i+75);
+    try{
+      const r=await fetch('https://api.scryfall.com/cards/collection',{
+        method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json;q=0.9,*/*;q=0.8'},
+        body:JSON.stringify({identifiers:chunk.map(e=>({name:e.name.split(' // ')[0]}))})});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const j=await r.json();
+      for(const c of j.data){
+        const s=slim(c);cache[c.name.toLowerCase()]=s;
+        if(c.name.includes(' // '))cache[c.name.split(' // ')[0].toLowerCase()]=s;
+      }
+      chunk.forEach(e=>{e.nf=!C(e)});
+    }catch(err){toast('Errore Scryfall: '+err.message+' (sei online?)');break}
+    done+=chunk.length;bar.style.width=(done/need.length*100)+'%';
+    save('mtg.cache',cache);save('mtg.coll',coll);render();
+    await sleep(120);
+  }
+  setTimeout(()=>bar.style.width='0',600);
+  save('mtg.cache',cache);save('mtg.coll',coll);render();
+}
+async function doImport(text,replace){
+  const list=parseList(text);
+  if(!list.length){toast('Nessuna carta riconosciuta nel testo');return}
+  if(replace)coll=list;
+  else{const m=new Map(coll.map(e=>[e.name.toLowerCase(),e]));
+    list.forEach(e=>{const x=m.get(e.name.toLowerCase());if(x)x.n+=e.n;else{coll.push(e);m.set(e.name.toLowerCase(),e)}})}
+  save('mtg.coll',coll);
+  setTab('shelf');
+  toast(`${list.length} carte lette, scarico immagini e dati…`);
+  await fetchMissing();
+  const nf=coll.filter(e=>e.nf).length;
+  toast(nf?`Fatto. ${nf} nomi non trovati (vedi tab Importa)`:'Collezione caricata!');
+}
+
+/* ---------- Filtri / raggruppamenti ---------- */
+function visible(){
+  const q=ui.q.toLowerCase();
+  return coll.map(e=>({e,c:C(e)})).filter(({e,c})=>{
+    if(!c)return !ui.q&&!ui.colors.size&&!ui.type&&!ui.fmt;
+    if(q&&!(c.n.toLowerCase().includes(q)||c.o.toLowerCase().includes(q)||c.t.toLowerCase().includes(q)))return false;
+    if(ui.type&&!c.t.includes(ui.type))return false;
+    if(ui.fmt&&!c.lg.includes(ui.fmt))return false;
+    if(ui.colors.size){
+      const ok=[...ui.colors].some(k=>k==='C'?c.ci.length===0:c.ci.includes(k));
+      if(!ok)return false;
+    }
+    return true;
+  });
+}
+function groupKey(c,e){
+  if(!c)return e.nf?['⚠ Da sistemare',-1]:['In caricamento',99];
+  switch(ui.group){
+    case 'color':
+      if(isLand(c))return['Terre',8];
+      if(c.col.length>1)return['Multicolore',6];
+      if(c.col.length===0)return['Incolore / Artefatti',7];
+      return[COLORS[c.col[0]],'WUBRG'.indexOf(c.col[0])];
+    case 'type':{
+      const T=['Planeswalker','Creature','Instant','Sorcery','Artifact','Enchantment','Battle','Land'];
+      const i=T.findIndex(x=>c.t.includes(x));return[i<0?'Altro':({Planeswalker:'Planeswalker',Creature:'Creature',Instant:'Istantanei',Sorcery:'Stregonerie',Artifact:'Artefatti',Enchantment:'Incantesimi',Battle:'Battaglie',Land:'Terre'})[T[i]],i<0?99:i]}
+    case 'cmc':{const v=Math.min(7,Math.floor(c.cmc));return[isLand(c)?'Terre':(v>=7?'Costo 7+':'Costo '+v),isLand(c)?-1:v]}
+    case 'rarity':{const R={mythic:['Mitiche',0],rare:['Rare',1],uncommon:['Non comuni',2],common:['Comuni',3]};return R[c.r]||['Altro',9]}
+    default:return['Tutta la collezione',0];
+  }
+}
+const sorters={
+  cmc:(a,b)=>(a.c?a.c.cmc:99)-(b.c?b.c.cmc:99)||a.e.name.localeCompare(b.e.name),
+  name:(a,b)=>a.e.name.localeCompare(b.e.name),
+  price:(a,b)=>(b.c?b.c.p:0)-(a.c?a.c.p:0),
+  n:(a,b)=>b.e.n-a.e.n||a.e.name.localeCompare(b.e.name)
+};
+
+/* ---------- Render scaffali ---------- */
+function cardEl(e,c,extra=''){
+  const cls='card'+(e.n>=3?' s3':e.n===2?' s2':'');
+  const inner=c&&c.im?`<img loading="lazy" src="${c.im}" alt="${esc(c.n)}">`:`<div class="ph ${e.nf?'nf':''}">${esc(e.name)}${e.nf?'<br>non trovata':'<br>…'}</div>`;
+  return `<div class="${cls}" data-name="${esc(e.name)}" title="${esc(e.name)}">${inner}${e.n>1?`<span class="n">×${e.n}</span>`:''}</div>`;
+}
+function renderShelf(){
+  const main=$('#main');
+  if(!coll.length){
+    main.innerHTML=`<div class="empty"><h2>Lo scaffale è vuoto</h2><p>Carica un file .txt con la tua lista (es. <code>4 Lightning Bolt</code>) dal tab <b>Importa lista</b>.</p>
+    <p><button class="btn" id="goimp">Importa lista</button> <button class="btn sec" id="sample">Prova con un esempio</button></p></div>`;
+    $('#goimp').onclick=()=>setTab('import');$('#sample').onclick=loadSample;return;
+  }
+  const items=visible();
+  if(!items.length){main.innerHTML='<div class="empty"><h2>Nessuna carta con questi filtri</h2></div>';return}
+  const groups=new Map();
+  items.forEach(it=>{const[k,o]=groupKey(it.c,it.e);if(!groups.has(k))groups.set(k,{o,list:[]});groups.get(k).list.push(it)});
+  const cw=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cw'));
+  const avail=main.clientWidth-30-28-12;
+  const perRow=Math.max(1,Math.floor((avail+10)/(cw+10)));
+  let html='';
+  [...groups.entries()].sort((a,b)=>a[1].o-b[1].o).forEach(([k,g])=>{
+    g.list.sort(sorters[ui.sort]);
+    const tot=g.list.reduce((s,x)=>s+x.e.n,0);
+    html+=`<section class="group"><div class="plate">${esc(k)}<em>${g.list.length} uniche · ${tot} copie</em></div><div class="unit">`;
+    for(let i=0;i<g.list.length;i+=perRow)
+      html+=`<div class="row">${g.list.slice(i,i+perRow).map(x=>cardEl(x.e,x.c)).join('')}</div>`;
+    html+='</div></section>';
+  });
+  main.innerHTML=html;
+}
+
+/* ---------- Stats ---------- */
+function renderStats(){
+  let uniq=coll.length,tot=0,val=0,nf=0;
+  coll.forEach(e=>{tot+=e.n;const c=C(e);if(c)val+=c.p*e.n;if(e.nf)nf++});
+  $('#stats').innerHTML=
+    `<div class="stat"><b>${uniq}</b><span>Uniche</span></div><div class="stat"><b>${tot}</b><span>Totale</span></div>`+
+    `<div class="stat"><b>${val.toFixed(0)}€</b><span>Valore stimato</span></div>`+(nf?`<div class="stat"><b style="color:#ff6b5b">${nf}</b><span>Non trovate</span></div>`:'');
+}
+
+/* =========================================================
+   CONSIGLI MAZZI
+   ========================================================= */
+function power(c){
+  let s=Math.log10(1+c.p)*1.5;
+  if(c.er)s+=Math.max(0,1-c.er/25000)*2.2;
+  s+={common:0,uncommon:.2,rare:.5,mythic:.7}[c.r]||0;
+  const o=c.o.toLowerCase();
+  if(/destroy target|exile target|deals? \d+ damage to (any|target)|counter target|destroy all|each opponent loses/.test(o))s+=.6;
+  if(/draw (a|two|three|\d+) cards?|search your library/.test(o))s+=.35;
+  if(isCreature(c)&&c.kw.some(k=>/flying|haste|lifelink|deathtouch|trample|menace|first strike|double strike|hexproof|vigilance/i.test(k)))s+=.3;
+  if(c.cmc>6)s-=1;
+  return s;
+}
+const owned=()=>coll.map(e=>({e,c:C(e),n:e.n})).filter(x=>x.c);
+const bucket=c=>Math.min(6,Math.max(1,Math.ceil(c.cmc)));
+const TARGET={1:6,2:9,3:8,4:6,5:4,6:3};
+const CAP={1:10,2:12,3:10,4:8,5:5,6:3};
+
+function pipCount(cards){
+  const p={W:0,U:0,B:0,R:0,G:0};
+  cards.forEach(({c,n})=>{(c.mc.match(/\{[^}]+\}/g)||[]).forEach(t=>{for(const ch of t)if(p[ch]!==undefined)p[ch]+=n})});
+  return p;
+}
+function basics(total,pips,set){
+  const cols=set.filter(k=>BASIC[k]);
+  if(!cols.length)return total>0?[{name:'Wastes',n:total}]:[];
+  const sum=cols.reduce((s,k)=>s+pips[k],0)||cols.length;
+  const raw=cols.map(k=>({k,v:Math.max(1,total*((pips[k]||1)/sum))}));
+  let res=raw.map(x=>({k:x.k,n:Math.floor(x.v),r:x.v%1}));
+  let left=total-res.reduce((s,x)=>s+x.n,0);
+  res.sort((a,b)=>b.r-a.r);
+  for(let i=0;left>0;i=(i+1)%res.length,left--)res[i].n++;
+  while(left<0){const m=res.reduce((a,b)=>a.n>b.n?a:b);m.n--;left++}
+  return res.filter(x=>x.n>0).map(x=>({name:BASIC[x.k],n:x.n,k:x.k}));
+}
+function archetype(picks){
+  const n=picks.reduce((s,x)=>s+x.n,0)||1;
+  const cr=picks.filter(x=>isCreature(x.c)).reduce((s,x)=>s+x.n,0)/n;
+  const avg=picks.reduce((s,x)=>s+x.c.cmc*x.n,0)/n;
+  const ctl=picks.filter(x=>/counter target spell|destroy all|exile all/i.test(x.c.o)).reduce((s,x)=>s+x.n,0);
+  if(ctl>=4||cr<.25)return'Controllo';
+  if(avg<=2.5&&cr>=.45)return'Aggro';
+  if(avg>=3.6)return'Ramp / Big';
+  return'Midrange';
+}
+function curveTip(picks,target,missing){
+  const have={1:0,2:0,3:0,4:0,5:0,6:0};
+  picks.forEach(({c,n})=>have[bucket(c)]+=n);
+  const needs=[];
+  const scale=target/36;
+  for(const b of [1,2,3,4,5,6]){
+    const d=Math.round(TARGET[b]*scale)-have[b];
+    if(d>0)needs.push(`${d} da costo ${b===6?'6+':b}`);
+  }
+  const crN=picks.filter(x=>isCreature(x.c)).reduce((s,x)=>s+x.n,0);
+  const bits=[];
+  if(missing>0)bits.push(`Ti mancano <b>${missing}</b> carte per completare il mazzo.`);
+  if(needs.length)bits.push(`Per una curva equilibrata cerca: ${needs.slice(0,4).join(', ')}.`);
+  if(crN<10)bits.push('Poche creature: ne servirebbero di più.');
+  return bits.join(' ')||'Il mazzo è completo e con una curva ragionevole.';
+}
+
+function pickCards(pool,target,perCopy,useCap){
+  const used={};const picks=[];let total=0;
+  for(const p of pool){
+    if(total>=target)break;
+    const b=bucket(p.c);
+    let room=Math.min(perCopy,p.n,target-total);
+    if(useCap)room=Math.min(room,CAP[b]-(used[b]||0));
+    if(isLegend(p.c)&&perCopy>1)room=Math.min(room,2);
+    if(room>0){picks.push({c:p.c,n:room});used[b]=(used[b]||0)+room;total+=room}
+  }
+  return picks;
+}
+
+function build60(fmt){
+  const all=owned().filter(x=>!isLand(x.c)&&x.c.lg.includes(fmt));
+  if(!all.length)return[];
+  const combos=[...'WUBRG'].map(k=>[k]);
+  const L='WUBRG';
+  for(let i=0;i<5;i++)for(let j=i+1;j<5;j++)combos.push([L[i],L[j]]);
+  const seen=new Set();const out=[];
+  for(const set of combos){
+    const pool=all.filter(x=>x.c.ci.every(k=>set.includes(k))).sort((a,b)=>power(b.c)-power(a.c));
+    const picks=pickCards(pool,36,4,true);
+    const total=picks.reduce((s,x)=>s+x.n,0);
+    if(total<12)continue;
+    if(set.length===2){
+      const per=set.map(k=>picks.filter(x=>x.c.ci.includes(k)).reduce((s,x)=>s+x.n,0));
+      if(per.some(v=>v<7))continue;
+    }
+    const sig=picks.map(x=>x.c.n+x.n).sort().join('|');
+    if(seen.has(sig))continue;seen.add(sig);
+    const pw=picks.reduce((s,x)=>s+power(x.c)*x.n,0);
+    out.push({set,picks,total,target:36,score:total*10+pw,kind:'60'});
+  }
+  return out.sort((a,b)=>b.score-a.score).slice(0,5).map(d=>{
+    const avg=d.picks.reduce((s,x)=>s+x.c.cmc*x.n,0)/d.total;
+    const lands=avg<2.3?22:avg>3.4?25:24;
+    d.nonland=60-lands;
+    d.pips=pipCount(d.picks);
+    d.lands=lands;
+    const ls=owned().filter(x=>isLand(x.c)&&!isBasic(x.c)&&x.c.lg.includes(fmt)&&x.c.ci.length&&x.c.ci.every(k=>d.set.includes(k)))
+      .sort((a,b)=>b.c.ci.length-a.c.ci.length||power(b.c)-power(a.c));
+    d.owned=[];let cnt=0;
+    for(const x of ls){const n=Math.min(4,x.n,12-cnt);if(n>0){d.owned.push({c:x.c,n});cnt+=n}}
+    d.basics=basics(lands-cnt,d.pips,d.set);
+    return d;
+  });
+}
+
+function buildCommander(){
+  const all=owned().filter(x=>x.c.lg.includes('commander'));
+  const cmdrs=all.filter(x=>(isLegend(x.c)&&isCreature(x.c))||/can be your commander/i.test(x.c.o));
+  const out=[];
+  for(const cm of cmdrs){
+    const ci=cm.c.ci;
+    const fits=all.filter(x=>x.c.n!==cm.c.n&&x.c.ci.every(k=>ci.includes(k)));
+    const spells=fits.filter(x=>!isLand(x.c)).sort((a,b)=>power(b.c)-power(a.c)).map(x=>({c:x.c,n:1}));
+    const lands=fits.filter(x=>isLand(x.c)&&!isBasic(x.c)).sort((a,b)=>power(b.c)-power(a.c)).slice(0,12).map(x=>({c:x.c,n:1}));
+    const picks=spells.slice(0,62);
+    const nonland=62;
+    const pw=picks.reduce((s,x)=>s+power(x.c),0);
+    out.push({cmd:cm.c,set:ci,picks,total:picks.length,target:nonland,nonland,owned:lands,score:picks.length*10+pw+power(cm.c)*2,kind:'cmd'});
+  }
+  return out.sort((a,b)=>b.score-a.score).slice(0,10).map(d=>{
+    const nb=99-d.nonland-d.owned.length;
+    d.pips=pipCount(d.picks.concat([{c:d.cmd,n:1}]));
+    d.basics=basics(nb,d.pips,d.set);
+    return d;
+  });
+}
+
+function deckText(d){
+  if(d.kind==='meta')return d.text;
+  const lines=[];
+  if(d.kind==='cmd'){lines.push('Commander');lines.push('1 '+d.cmd.n);lines.push('','Deck')}
+  d.picks.slice().sort((a,b)=>a.c.cmc-b.c.cmc||a.c.n.localeCompare(b.c.n)).forEach(x=>lines.push(x.n+' '+x.c.n));
+  (d.owned||[]).forEach(x=>lines.push(x.n+' '+x.c.n));
+  d.basics.forEach(b=>lines.push(b.n+' '+b.name));
+  return lines.join('\n');
+}
+function deckName(d){
+  if(d.kind==='meta')return d.name;
+  const nm=d.set.length?d.set.map(k=>COLORS[k]).join('-'):'Incolore';
+  return d.kind==='cmd'?d.cmd.n:`${nm} ${archetype(d.picks)}`;
+}
+function landsHTML(d){
+  const own=d.owned||[];
+  const ownN=own.reduce((s,x)=>s+x.n,0);
+  const total=d.kind==='cmd'?99-d.nonland:d.lands;
+  const basicsTxt=d.basics.map(b=>`${b.n} ${b.name}`).join(' · ');
+  const multi=own.filter(x=>x.c.ci.length>=2);
+  const multiN=multi.reduce((s,x)=>s+x.n,0);
+  let dual;
+  if(d.set.length<2)dual='';
+  else if(multi.length)dual=`<div class="lands" style="color:#6fe3a2">✔ Terre doppie/multicolore che possiedi (${multiN}): ${multi.map(x=>x.n+'× '+esc(x.c.n)).join(', ')}</div>`;
+  else dual=`<div class="lands" style="color:#ffb347">Non hai terre doppie per questi colori: il mazzo funziona con le sole base, ma il mana sarà meno stabile.</div>`;
+  return `<div class="lands" style="font-size:13px;color:var(--txt)"><b style="color:var(--acc)">${total} terre totali</b> — ${[basicsTxt,ownN?`${ownN} dalla tua collezione`:''].filter(Boolean).join(' · ')}</div>${dual}`;
+}
+const decksStore=[];
+function deckHTML(d,i){
+  const miss=Math.max(0,d.target-d.total);
+  const pct=Math.round(d.total/d.target*100);
+  const curve={1:0,2:0,3:0,4:0,5:0,6:0};
+  d.picks.forEach(({c,n})=>curve[bucket(c)]+=n);
+  const mx=Math.max(...Object.values(curve),1);
+  const pips=d.set.map(k=>`<i class="pip p${k}">${k}</i>`).join('');
+  const sorted=d.picks.slice().sort((a,b)=>a.c.cmc-b.c.cmc||a.c.n.localeCompare(b.c.n));
+  const thumbs=sorted.map(x=>cardEl({name:x.c.n,n:x.n},x.c)).join('')+
+    (d.owned||[]).map(x=>cardEl({name:x.c.n,n:x.n},x.c)).join('')+
+    Array.from({length:Math.min(miss,30)},()=>'<div class="card"><div class="ph">da trovare</div></div>').join('');
+  decksStore[i]=d;
+  const arch=d.kind==='cmd'?archetype(d.picks):archetype(d.picks);
+  return `<article class="deck">
+    <div class="dhead"><div class="pips">${pips}</div><h3>${esc(deckName(d))}</h3><span class="tag">${d.kind==='cmd'?'Commander · '+arch:arch}</span>
+      <div class="meter"><div class="bar"><i style="width:${pct}%"></i></div><small>${d.total}/${d.target} carte possedute (${pct}%)</small></div>
+      <button class="btn sec" data-copy="${i}">Copia lista</button><button class="btn sec" data-dl="${i}">Scarica .txt</button>
+    </div>
+    <div class="dbody">
+      <div class="curve">${[1,2,3,4,5,6].map(b=>`<div><i style="height:${curve[b]/mx*34}px"></i>${b===6?'6+':b}</div>`).join('')}</div>
+      <div class="tip">${curveTip(d.picks,d.target,miss)}</div>
+      ${landsHTML(d)}
+      <div class="thumbs">${thumbs}</div>
+    </div></article>`;
+}
+function renderDecks(){
+  const main=$('#main');
+  if(!owned().length){main.innerHTML='<div class="empty"><h2>Prima carica la collezione</h2><p>I consigli si basano sulle carte che possiedi.</p></div>';return}
+  const f=ui.deckFmt;
+  let decks=f==='commander'?buildCommander():build60(f);
+  const fmtBtns=Object.entries(FORMATS).map(([k,v])=>`<button data-f="${k}" class="${k===f?'on':''}">${v}</button>`).join('');
+  decksStore.length=0;
+  const intro=f==='commander'
+    ?'Ho cercato tra le tue creature leggendarie quelle con più carte compatibili (identità di colore) e ho costruito 99 carte attorno a ciascuna.'
+    :'Per ogni colore e coppia di colori costruisco il miglior mazzo da 60 carte con quello che possiedi, rispettando una curva di mana sensata. Le terre base si aggiungono a parte.';
+  const metas=metaFor(f);
+  let metaPart='';
+  if(metas.length){
+    const names=metas.flatMap(m=>m.cards.map(c=>c.name));
+    if(names.some(n=>!BASICNAMES.test(n)&&!cache[n.toLowerCase()]&&!metaNF.has(n.toLowerCase()))){
+      metaPart='<h2 class="sect">Meta</h2><div class="empty" style="padding:30px">Carico i dati dei mazzi meta da Scryfall…</div>';
+      ensureCards(names).then(()=>{if(ui.tab==='decks'&&ui.deckFmt===f)renderDecks()});
+    }else{
+      const ev=metas.map(m=>evalMeta(m,f)).sort((a,b)=>b.pct-a.pct);
+      metaPart=`<h2 class="sect">Mazzi meta · ${FORMATS[f]} <small>(${ev.length}, dal più completo)</small></h2>`+ev.map(m=>metaHTML(m)).join('');
+    }
+  }
+  const genHead=decks.length?`<h2 class="sect">Costruiti con le tue carte <small>(${decks.length})</small></h2>`:'';
+  main.innerHTML=`<div class="fmts">${fmtBtns}</div><p class="hint" style="margin:-6px 0 18px">${metas.length?'Prima i mazzi del meta confrontati con la tua collezione, poi quelli costruiti da me. ':''}${intro} La forza delle carte è stimata da prezzo, popolarità (EDHREC), rarità e tipo di effetto: considerala una base di partenza.</p>`+
+    metaPart+genHead+
+    (decks.length?decks.map(d=>deckHTML(d,decksStore.length)).join(''):`<div class="empty"><h2>Collezione troppo piccola per costruire mazzi in ${FORMATS[f]}</h2><p>Servono almeno una dozzina di carte legali nello stesso colore${f==='commander'?' e almeno una creatura leggendaria':''}.</p></div>`)+customHTML(f);
+}
+
+/* ---------- Mazzi meta ---------- */
+// Nuclei (carte chiave) degli archetipi principali, scritti a mano: possono essere un po' datati.
+// Per avere liste aggiornate incolla un mazzo reale col pannello in fondo.
+const META={
+modern:[
+['Burn','4 Goblin Guide;4 Monastery Swiftspear;4 Eidolon of the Great Revel;4 Lightning Bolt;4 Chain Lightning;4 Lava Spike;4 Rift Bolt;4 Boros Charm;4 Skewer the Critics;4 Sacred Foundry;4 Inspiring Vantage;4 Arid Mesa'],
+['Tron','4 Urza\'s Tower;4 Urza\'s Mine;4 Urza\'s Power Plant;4 Ancient Stirrings;4 Expedition Map;4 Chromatic Star;4 Sylvan Scrying;3 Wurmcoil Engine;3 Karn Liberated;2 Ugin, the Spirit Dragon;2 Walking Ballista;1 Oblivion Stone'],
+['Izzet Murktide','4 Dragon\'s Rage Channeler;4 Murktide Regent;4 Lightning Bolt;4 Counterspell;4 Consider;4 Expressive Iteration;4 Unholy Heat;4 Spirebluff Canal;4 Scalding Tarn;2 Steam Vents'],
+['Elves','4 Llanowar Elves;4 Elvish Mystic;4 Elvish Archdruid;4 Heritage Druid;4 Nettle Sentinel;4 Priest of Titania;4 Collected Company;2 Craterhoof Behemoth;4 Wooded Foothills'],
+['Control Azorius','4 Counterspell;3 Supreme Verdict;3 Teferi, Hero of Dominaria;4 Solitude;4 Prismatic Ending;4 Archmage\'s Charm;3 Cryptic Command;2 Wrath of God;4 Hallowed Fountain;4 Flooded Strand'],
+['Jund Midrange','4 Tarmogoyf;4 Scavenging Ooze;4 Thoughtseize;4 Fatal Push;3 Liliana of the Veil;3 Assassin\'s Trophy;3 Kolaghan\'s Command;3 Bloodbraid Elf;3 Lightning Bolt;4 Blackcleave Cliffs;4 Overgrown Tomb'],
+['Affinity','4 Ornithopter;4 Memnite;4 Signal Pest;4 Cranial Plating;4 Frogmite;4 Thoughtcast;4 Springleaf Drum;4 Galvanic Blast;2 Etched Champion;4 Arcbound Ravager;4 Darksteel Citadel'],
+['Humans (Boros)','4 Champion of the Parish;4 Thalia\'s Lieutenant;4 Thalia, Guardian of Thraben;4 Reflector Mage;4 Meddling Mage;4 Kitesail Freebooter;4 Mantis Rider;4 Aether Vial;4 Unclaimed Territory']
+],
+pioneer:[
+['Mono Rosso Aggro','4 Monastery Swiftspear;4 Kumano Faces Kakkazan;4 Play with Fire;4 Lightning Strike;4 Light Up the Stage;4 Burst Lightning;4 Soul-Scar Mage;3 Embercleave;4 Mountain'],
+['Rakdos Midrange','4 Thoughtseize;4 Fatal Push;4 Bloodtithe Harvester;4 Kroxa, Titan of Death\'s Hunger;4 Sheoldred, the Apocalypse;4 Bonecrusher Giant;4 Fable of the Mirror-Breaker;4 Blood Crypt;4 Blightstep Pathway'],
+['Azorius Control','4 Supreme Verdict;3 Teferi, Hero of Dominaria;4 Absorb;4 Memory Deluge;3 Shark Typhoon;3 Dovin\'s Veto;2 Sphinx\'s Revelation;3 Glass Casket;4 Hallowed Fountain;4 Glacial Fortress'],
+['Selesnya Company','4 Collected Company;4 Walking Ballista;4 Elvish Mystic;4 Llanowar Elves;4 Lovestruck Beast;4 Skyclave Apparition;3 Archangel Avacyn;4 Temple Garden;4 Branchloft Pathway'],
+['Izzet Phoenix','4 Arclight Phoenix;4 Thing in the Ice;4 Treasure Cruise;4 Opt;4 Consider;4 Behold the Multiverse;4 Fiery Impulse;4 Lightning Axe;4 Steam Vents;4 Spirebluff Canal'],
+['Golgari Midrange','4 Thoughtseize;4 Fatal Push;4 Sheoldred, the Apocalypse;3 Liliana, the Last Hope;4 Tenacious Underdog;4 Deadly Dispute;4 Reckoner Bankbuster;4 Llanowar Elves;4 Overgrown Tomb;4 Blooming Marsh'],
+['Lotus Field Combo','4 Lotus Field;4 Hidden Strings;4 Pore Over the Pages;4 Thassa\'s Oracle;4 Jace, Wielder of Mysteries;4 Sea Gate Restoration;4 Spikefield Hazard']
+],
+legacy:[
+['Delver (Izzet)','4 Delver of Secrets;4 Dragon\'s Rage Channeler;4 Lightning Bolt;4 Brainstorm;4 Ponder;4 Daze;4 Force of Will;4 Wasteland;3 Murktide Regent;3 Snapcaster Mage;4 Volcanic Island;4 Scalding Tarn'],
+['Reanimator','4 Entomb;4 Reanimate;4 Animate Dead;4 Exhume;4 Griselbrand;3 Archon of Cruelty;4 Faithless Looting;4 Thoughtseize;4 Unmask;4 Underground Sea'],
+['Death and Taxes','4 Thalia, Guardian of Thraben;4 Stoneforge Mystic;4 Aether Vial;4 Mother of Runes;4 Flickerwisp;4 Swords to Plowshares;4 Rishadan Port;4 Wasteland;4 Flagstones of Trokair'],
+['Sneak and Show','4 Show and Tell;4 Sneak Attack;3 Griselbrand;2 Emrakul, the Aeons Torn;4 Brainstorm;4 Ponder;4 Force of Will;4 Volcanic Island;4 Scalding Tarn'],
+['Storm (ANT)','4 Dark Ritual;4 Cabal Ritual;4 Infernal Tutor;4 Tendrils of Agony;3 Ad Nauseam;4 Lion\'s Eye Diamond;4 Brainstorm;4 Ponder;4 Thoughtseize;4 Underground Sea'],
+['Control Azorius','4 Force of Will;4 Counterspell;4 Swords to Plowshares;4 Brainstorm;3 Jace, the Mind Sculptor;3 Snapcaster Mage;3 Supreme Verdict;2 Wrath of God;4 Tundra;4 Flooded Strand'],
+['Lands','4 Life from the Loam;4 Wasteland;4 Rishadan Port;4 Maze of Ith;4 Punishing Fire;4 Grove of the Burnwillows;4 Horizon Canopy;3 Tireless Tracker'],
+['Elves','4 Llanowar Elves;4 Elvish Mystic;4 Heritage Druid;4 Nettle Sentinel;4 Glimpse of Nature;4 Priest of Titania;2 Craterhoof Behemoth;1 Natural Order;4 Wooded Foothills']
+],
+pauper:[
+['Burn','4 Lightning Bolt;4 Chain Lightning;4 Burst Lightning;4 Fireblast;4 Skred;4 Keldon Marauders;4 Goblin Bushwhacker;4 Rift Bolt;4 Firebolt'],
+['Affinity','4 Atog;4 Frogmite;4 Myr Enforcer;4 Thoughtcast;4 Galvanic Blast;4 Cranial Plating;4 Great Furnace;4 Vault of Whispers'],
+['Mono Nero Control','4 Chittering Rats;4 Gurmag Angler;4 Gray Merchant of Asphodel;4 Snuff Out;4 Crypt Rats;4 Disfigure;4 Cuombajj Witches'],
+['White Weenie','4 Kor Skyfisher;4 Squadron Hawk;4 Journey to Nowhere;4 Battle Screech;4 Guardian of the Guildpact;4 Prismatic Strands;4 Mother of Runes'],
+['Elves','4 Llanowar Elves;4 Elvish Mystic;4 Priest of Titania;4 Wellwisher;4 Timberwatch Elf;4 Rancor;4 Lys Alana Huntmaster'],
+['Faeries (Blu)','4 Spellstutter Sprite;4 Counterspell;4 Mulldrifter;4 Ninja of the Deep Hours;4 Brainstorm;4 Ponder;4 Mana Leak;4 Faerie Miscreant'],
+['Bogles','4 Slippery Bogle;4 Gladecover Scout;4 Ethereal Armor;4 Rancor;4 Kor Spiritdancer;4 Armadillo Cloak;4 Temple Garden']
+]};
+const metaNF=new Set();
+const BASICNAMES=/^(snow-covered )?(plains|island|swamp|mountain|forest|wastes)$/i;
+function parseMetaLine(str){
+  return str.split(';').map(s=>{const m=s.trim().match(/^(\d+)\s+(.+)$/);return m?{n:+m[1],name:m[2].replace(/\?.*$/,'').trim()}:null}).filter(x=>x&&x.name);
+}
+let customMeta=load('mtg.meta',[]);
+function metaFor(f){
+  const b=(META[f]||[]).map(([name,s])=>({name,cards:parseMetaLine(s),builtin:true}));
+  return b.concat(customMeta.filter(m=>m.fmt===f).map(m=>({name:m.name,cards:m.cards,custom:m.id,text:m.text})));
+}
+async function ensureCards(names){
+  const orig={};names.forEach(n=>orig[n.toLowerCase()]=n);
+  const need=Object.keys(orig).filter(k=>!cache[k]&&!metaNF.has(k)&&!BASICNAMES.test(k));
+  for(let i=0;i<need.length;i+=75){
+    const chunk=need.slice(i,i+75);
+    try{
+      const r=await fetch(SF+'/cards/collection',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json;q=0.9,*/*;q=0.8'},
+        body:JSON.stringify({identifiers:chunk.map(k=>({name:orig[k].split(' // ')[0]}))})});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const j=await r.json();
+      for(const c of j.data){const s=slim(c);cache[c.name.toLowerCase()]=s;if(c.name.includes(' // '))cache[c.name.split(' // ')[0].toLowerCase()]=s}
+      chunk.forEach(k=>{if(!cache[k])metaNF.add(k)});
+    }catch(err){toast('Errore Scryfall: '+err.message);chunk.forEach(k=>metaNF.add(k))}
+    await sleep(120);
+  }
+  save('mtg.cache',cache);
+}
+function evalMeta(m,f){
+  const have={};
+  coll.forEach(e=>{const c=C(e);if(c){have[c.n.toLowerCase()]=(have[c.n.toLowerCase()]||0)+e.n;const fr=c.n.split(' // ')[0].toLowerCase();if(fr!==c.n.toLowerCase())have[fr]=(have[fr]||0)+e.n}});
+  let need=0,got=0,cost=0;const rows=[],bad=[];
+  m.cards.forEach(({name,n})=>{
+    const k=name.toLowerCase(),c=cache[k];
+    if(BASICNAMES.test(name)){rows.push({name,n,c:null,own:n,basic:true});return}
+    if(!c){rows.push({name,n,c:null,own:0,unk:true});bad.push(name);return}
+    if(!c.lg.includes(f)){rows.push({name,n,c,own:0,illegal:true});return}
+    const own=Math.min(n,have[k]||0);
+    need+=n;got+=own;cost+=(n-own)*c.p;
+    rows.push({name,n,c,own});
+  });
+  const text=m.text||m.cards.map(x=>x.n+' '+x.name).join('\n');
+  return{...m,rows,need,got,cost,pct:need?Math.round(got/need*100):0,text,kind:'meta',bad};
+}
+function metaHTML(m){
+  const i=decksStore.length;decksStore.push(m);
+  const miss=m.rows.filter(r=>!r.basic&&!r.illegal&&!r.unk&&r.own<r.n).sort((a,b)=>(b.n-b.own)*(b.c.p||0)-(a.n-a.own)*(a.c.p||0));
+  const missN=m.need-m.got;
+  const thumbs=m.rows.filter(r=>r.c&&!r.illegal).map(r=>{
+    const im=r.c.im?`<img loading="lazy" src="${r.c.im}" alt="${esc(r.name)}">`:`<div class="ph">${esc(r.name)}</div>`;
+    const have=r.own?`<span class="n">×${r.own}</span>`:'';
+    const lack=r.n-r.own>0?`<span class="n" style="background:#ff6b5b;color:#190500;bottom:30px">−${r.n-r.own}</span>`:'';
+    return `<div class="card${r.own?'':' miss'}" data-name="${esc(r.name)}" title="${esc(r.name)} (${r.own}/${r.n})">${im}${have}${lack}</div>`;
+  }).join('');
+  const tip=missN<=0?'<b>Ce l\'hai tutto!</b> Hai le carte chiave di questo mazzo.'
+    :`Ti mancano <b>${missN}</b> carte chiave${m.cost?` (circa <b>${m.cost.toFixed(0)}€</b>)`:''}. Le più importanti: ${miss.slice(0,6).map(r=>`${r.n-r.own}× ${esc(r.name)}`).join(', ')}.`;
+  const warn=[];
+  const ill=m.rows.filter(r=>r.illegal).map(r=>r.name);
+  if(ill.length)warn.push(`Non legali oggi in questo formato (ignorate): ${ill.map(esc).join(', ')}.`);
+  if(m.bad&&m.bad.length)warn.push(`Nomi non riconosciuti: ${m.bad.map(esc).join(', ')}.`);
+  return `<article class="deck meta">
+    <div class="dhead"><h3>${esc(m.name)}</h3><span class="tag">${m.custom?'Tuo mazzo':'Meta'}</span>
+      <div class="meter"><div class="bar"><i style="width:${m.pct}%"></i></div><small>${m.got}/${m.need} carte chiave possedute (${m.pct}%)</small></div>
+      <button class="btn sec" data-copy="${i}">Copia lista</button><button class="btn sec" data-dl="${i}">Scarica .txt</button>${m.custom?`<button class="btn warn" data-delmeta="${m.custom}">Elimina</button>`:''}
+    </div>
+    <div class="dbody"><div class="tip">${tip}</div>${warn.map(w=>`<div class="lands" style="color:#ffb347">${w}</div>`).join('')}
+      <div class="thumbs">${thumbs}</div></div></article>`;
+}
+function customHTML(f){
+  return `<details class="panel" style="margin-top:26px"><summary style="cursor:pointer;color:var(--acc);letter-spacing:.12em;text-transform:uppercase;font-size:13px">+ Aggiungi un mazzo meta (da MTGGoldfish, Moxfield, Arena…)</summary>
+    <p class="hint">Incolla la lista del <b>main deck</b> ${f==='commander'?'(Commander incluso)':'(il sideboard dopo la riga vuota viene ignorato)'}. Verrà confrontata con la tua collezione per ${FORMATS[f]}.</p>
+    <input type="search" id="cmname" placeholder="Nome del mazzo" style="width:100%;background:#070c15;border:1px solid var(--line);padding:8px 10px;margin-bottom:8px">
+    <textarea id="cmtxt" style="height:160px" placeholder="4 Lightning Bolt&#10;4 Goblin Guide&#10;…"></textarea>
+    <div class="row-btn"><button class="btn" data-addmeta="${f}">Aggiungi</button></div></details>`;
+}
+function addCustomMeta(f){
+  const name=$('#cmname').value.trim()||'Mazzo personalizzato';
+  let lines=$('#cmtxt').value.split(/\r?\n/);
+  const out=[];let seen=false;
+  for(const l of lines){
+    if(/^sideboard/i.test(l.trim()))break;
+    if(!l.trim()){if(seen&&f!=='commander')break;continue}
+    out.push(l);seen=true;
+  }
+  const cards=parseList(out.join('\n'));
+  if(!cards.length){toast('Nessuna carta riconosciuta');return}
+  customMeta.push({id:'c'+Date.now(),fmt:f,name,cards,text:cards.map(c=>c.n+' '+c.name).join('\n')});
+  save('mtg.meta',customMeta);renderDecks();toast('Mazzo aggiunto');
+}
+
+/* ---------- Import tab ---------- */
+function renderImport(){
+  const nf=coll.filter(e=>e.nf);
+  $('#main').innerHTML=`
+  <div class="panel"><h2>Importa la tua lista</h2>
+    <div class="drop" id="drop">Trascina qui un file <b>.txt</b> o l'export <b>.csv di ManaBox</b> oppure <label style="color:var(--acc);cursor:pointer;text-decoration:underline">scegli file<input type="file" id="file" accept=".txt,.csv,.dec,text/plain" hidden></label></div>
+    <textarea id="txt" placeholder="4 Lightning Bolt&#10;2x Counterspell&#10;1 Sol Ring (CMM) 400&#10;…"></textarea>
+    <div class="row-btn">
+      <button class="btn" id="add">Aggiungi alla collezione</button>
+      <button class="btn warn" id="rep">Sostituisci collezione</button>
+      <button class="btn sec" id="sample">Carica esempio</button>
+      <button class="btn sec" id="retry">Riprova non trovate</button>
+      <button class="btn sec" id="export">Esporta collezione</button>
+      <button class="btn warn" id="clear">Svuota tutto</button>
+    </div>
+    <p class="hint"><b>Da ManaBox:</b> nell'app apri la Collezione (o un raccoglitore) → menu ⋯ → <i>Esporta</i> → CSV, passa il file al PC e trascinalo qui: viene riconosciuto da solo. Le copie della stessa carta in set diversi o foil vengono sommate.</p>
+    <p class="hint">Una carta per riga,in inglese: <code>4 Lightning Bolt</code>, <code>4x Lightning Bolt</code>, <code>Lightning Bolt x4</code>. Set e numero tra parentesi vengono ignorati. Le righe che iniziano con <code>//</code> sono commenti. Immagini e dati arrivano da Scryfall (serve internet), poi restano salvati nel browser.</p>
+    ${nf.length?`<div class="nflist"><b>Nomi non trovati (${nf.length}):</b><br>${nf.map(e=>esc(e.name)).join('<br>')}</div>`:''}
+  </div>`;
+  const drop=$('#drop');
+  const readFile=f=>{const r=new FileReader();r.onload=()=>{$('#txt').value=r.result;toast('File letto: scegli Aggiungi o Sostituisci')};r.readAsText(f)};
+  $('#file').onchange=e=>e.target.files[0]&&readFile(e.target.files[0]);
+  drop.ondragover=e=>{e.preventDefault();drop.classList.add('over')};
+  drop.ondragleave=()=>drop.classList.remove('over');
+  drop.ondrop=e=>{e.preventDefault();drop.classList.remove('over');e.dataTransfer.files[0]&&readFile(e.dataTransfer.files[0])};
+  $('#add').onclick=()=>doImport($('#txt').value,false);
+  $('#rep').onclick=()=>{if(!coll.length||confirm('Sostituire tutta la collezione attuale?'))doImport($('#txt').value,true)};
+  $('#sample').onclick=loadSample;
+  $('#retry').onclick=()=>{setTab('shelf');fetchMissing(true)};
+  $('#export').onclick=()=>download('collezione.txt',coll.map(e=>e.n+' '+e.name).join('\n'));
+  $('#clear').onclick=()=>{if(confirm('Cancellare collezione e cache?')){coll=[];cache={};save('mtg.coll',coll);save('mtg.cache',cache);render()}};
+}
+const SAMPLE=`4 Lightning Bolt
+4 Monastery Swiftspear
+4 Goblin Guide
+4 Chain Lightning
+4 Burst Lightning
+4 Rift Bolt
+3 Fireblast
+2 Eidolon of the Great Revel
+4 Counterspell
+3 Mana Leak
+3 Brainstorm
+2 Snapcaster Mage
+2 Delver of Secrets
+4 Llanowar Elves
+4 Elvish Mystic
+3 Rampant Growth
+3 Eternal Witness
+3 Swords to Plowshares
+3 Path to Exile
+2 Serra Angel
+2 Wrath of God
+3 Doom Blade
+3 Go for the Throat
+2 Vampire Nighthawk
+2 Gray Merchant of Asphodel
+1 Sol Ring
+1 Arcane Signet
+1 Command Tower
+1 Atraxa, Praetors' Voice
+1 Edgar Markov
+1 Krenko, Mob Boss
+1 Meren of Clan Nel Toth
+1 Korvold, Fae-Cursed King
+1 Talrand, Sky Summoner
+1 Rhystic Study
+1 Cyclonic Rift
+1 Blasphemous Act
+1 Chaos Warp
+1 Mulldrifter`;
+function loadSample(){doImport(SAMPLE,false)}
+function download(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download=name;a.click()}
+
+/* ---------- Modal ---------- */
+/* ---------- Correzione carte non trovate ---------- */
+const SF='https://api.scryfall.com';
+function applyFix(e,card){
+  const s=slim(card);
+  cache[card.name.toLowerCase()]=s;
+  if(card.name.includes(' // '))cache[card.name.split(' // ')[0].toLowerCase()]=s;
+  const dup=coll.find(x=>x!==e&&x.name.toLowerCase()===card.name.toLowerCase());
+  if(dup){dup.n+=e.n;coll=coll.filter(x=>x!==e)}else{e.name=card.name;e.nf=false}
+  save('mtg.cache',cache);save('mtg.coll',coll);
+  $('#modal').classList.remove('on');render();toast('Sistemata: '+card.name);
+}
+function openFix(e){
+  $('#mbox').innerHTML=`<div style="flex:1;min-width:0">
+    <h2 style="color:#ff9f95">⚠ Carta non trovata</h2>
+    <div class="ty">Nome letto dalla lista: <b>${esc(e.name)}</b> · ${e.n} copie</div>
+    <p class="hint" style="margin-top:0">Correggi il nome (in inglese) oppure scegli uno dei suggerimenti di Scryfall.</p>
+    <input type="search" id="fixq" value="${esc(e.name)}" style="width:100%;background:#070c15;border:1px solid var(--line);padding:8px 10px">
+    <div class="row-btn"><button class="btn" id="fixgo">Cerca</button><button class="btn warn" id="fixrm" style="margin-left:auto">Rimuovi dalla lista</button></div>
+    <div id="fixres" style="margin-top:14px"></div></div>`;
+  $('#modal').classList.add('on');
+  const res=$('#fixres'),inp=$('#fixq');
+  const showCard=c=>{
+    const f=c.card_faces&&c.card_faces[0],im=(c.image_uris||(f&&f.image_uris)||{}).small||'';
+    return `<div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">${im?`<img src="${im}" style="width:90px;border-radius:4px">`:''}
+      <div><b>${esc(c.name)}</b><div class="ty" style="margin:0">${esc(c.type_line||'')}</div><button class="btn" id="fixuse" style="margin-top:8px">Usa questa carta</button></div></div>`;
+  };
+  async function search(){
+    const q=inp.value.trim();if(!q)return;
+    res.innerHTML='<span class="hint">Cerco…</span>';
+    try{
+      const r=await fetch(`${SF}/cards/named?fuzzy=${encodeURIComponent(q)}`);
+      let html='';
+      if(r.ok){const c=await r.json();html=showCard(c);res.innerHTML=html;$('#fixuse').onclick=()=>applyFix(e,c);return}
+      const a=await (await fetch(`${SF}/cards/autocomplete?q=${encodeURIComponent(q)}`)).json();
+      if(!a.data||!a.data.length){res.innerHTML='<span class="hint">Nessun risultato. Prova con meno parole o il nome inglese.</span>';return}
+      res.innerHTML='<div class="hint" style="margin:0 0 6px">Forse intendevi:</div>'+a.data.map(n=>`<button class="btn sec" data-n="${esc(n)}" style="display:block;margin:0 0 5px;width:100%;text-align:left;text-transform:none">${esc(n)}</button>`).join('');
+    }catch(err){res.innerHTML='<span class="hint">Errore di rete: '+esc(err.message)+'</span>'}
+  }
+  res.onclick=async ev=>{
+    const n=ev.target.dataset.n;if(!n)return;
+    const r=await fetch(`${SF}/cards/named?exact=${encodeURIComponent(n)}`);
+    if(r.ok)applyFix(e,await r.json());
+  };
+  $('#fixgo').onclick=search;
+  inp.onkeydown=ev=>{if(ev.key==='Enter')search()};
+  $('#fixrm').onclick=()=>{coll=coll.filter(x=>x!==e);save('mtg.coll',coll);$('#modal').classList.remove('on');render()};
+  $('#mbox').onclick=null;
+  search();
+}
+
+function openCard(name){
+  const e=coll.find(x=>x.name===name);if(!e)return;
+  if(e.nf&&!C(e)){openFix(e);return}
+  const c=C(e);
+  $('#mbox').innerHTML=(c?`<img src="${c.il}" alt="">`:'')+`<div style="flex:1;min-width:0">
+    <h2>${esc(c?c.n:e.name)} <span style="font-weight:400">${c?mana(c.mc):''}</span></h2>
+    <div class="ty">${c?esc(c.t)+' · '+esc(c.s)+' · '+esc(c.r):'Carta non trovata su Scryfall'}</div>
+    ${c&&c.o?`<pre>${esc(c.o)}</pre>`:''}
+    ${c?`<div class="leg">${Object.entries(FORMATS).map(([k,v])=>`<span class="${c.lg.includes(k)?'':'no'}">${v}${c.lg.includes(k)?'':' ✗'}</span>`).join('')}</div><div class="ty">Prezzo indicativo: ${c.p?c.p.toFixed(2)+'€':'n/d'}</div>`:''}
+    <div class="qty"><button class="btn sec" data-d="-1">−</button><b>${e.n}</b><button class="btn sec" data-d="1">+</button><span style="color:var(--mut)">copie</span>
+    <button class="btn warn" data-d="rm" style="margin-left:auto">Rimuovi</button></div></div>`;
+  $('#modal').classList.add('on');
+  $('#mbox').onclick=ev=>{
+    const d=ev.target.dataset.d;if(!d)return;
+    if(d==='rm'||e.n+ +d<=0){coll=coll.filter(x=>x!==e);$('#modal').classList.remove('on')}
+    else{e.n+= +d;openCard(name)}
+    save('mtg.coll',coll);render();
+  };
+}
+$('#modal').onclick=e=>{if(e.target.id==='modal')$('#modal').classList.remove('on')};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#modal').classList.remove('on')});
+
+/* ---------- Wiring ---------- */
+function setTab(t){
+  ui.tab=t;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  $('#filters').style.display=t==='shelf'?'flex':'none';
+  render();
+}
+function render(){
+  renderStats();
+  if(ui.tab==='shelf')renderShelf();else if(ui.tab==='decks')renderDecks();else renderImport();
+}
+$('#tabs').onclick=e=>{if(e.target.dataset.t)setTab(e.target.dataset.t)};
+$('#main').addEventListener('click',e=>{
+  const card=e.target.closest('.card[data-name]');
+  if(card&&ui.tab==='shelf'){openCard(card.dataset.name);return}
+  if(card&&ui.tab==='decks'){openCard(card.dataset.name);return}
+  const f=e.target.dataset.f;if(f){ui.deckFmt=f;renderDecks();return}
+  if(e.target.dataset.addmeta){addCustomMeta(e.target.dataset.addmeta);return}
+  if(e.target.dataset.delmeta){customMeta=customMeta.filter(m=>m.id!==e.target.dataset.delmeta);save('mtg.meta',customMeta);renderDecks();return}
+  if(e.target.dataset.copy!==undefined){navigator.clipboard.writeText(deckText(decksStore[e.target.dataset.copy])).then(()=>toast('Lista copiata negli appunti'));return}
+  if(e.target.dataset.dl!==undefined){const d=decksStore[e.target.dataset.dl];download(deckName(d).replace(/[^\w-]+/g,'_')+'.txt',deckText(d))}
+});
+// openCard per carte dei mazzi non in collezione con lo stesso nome: funziona perché le carte consigliate sono possedute
+
+$('#q').oninput=e=>{ui.q=e.target.value;renderShelf()};
+$('#ftype').onchange=e=>{ui.type=e.target.value;renderShelf()};
+$('#ffmt').onchange=e=>{ui.fmt=e.target.value;renderShelf()};
+$('#group').onchange=e=>{ui.group=e.target.value;renderShelf()};
+$('#sort').onchange=e=>{ui.sort=e.target.value;renderShelf()};
+$('#zoom').oninput=e=>{document.documentElement.style.setProperty('--cw',e.target.value+'px');renderShelf()};
+['Creature','Instant','Sorcery','Artifact','Enchantment','Planeswalker','Land','Battle'].forEach(t=>$('#ftype').insertAdjacentHTML('beforeend',`<option>${t}</option>`));
+Object.entries(FORMATS).forEach(([k,v])=>$('#ffmt').insertAdjacentHTML('beforeend',`<option value="${k}">${v}</option>`));
+$('#chips').innerHTML=[...'WUBRGC'].map(k=>`<button class="chip" data-c="${k}" title="${COLORS[k]||'Incolore'}"><span>${k}</span></button>`).join('');
+$('#chips').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;const k=b.dataset.c;ui.colors.has(k)?ui.colors.delete(k):ui.colors.add(k);b.classList.toggle('on');renderShelf()};
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>ui.tab==='shelf'&&renderShelf(),150)});
+// trascina un txt ovunque
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>{
+  if(e.target.closest&&e.target.closest('#drop'))return;
+  e.preventDefault();const f=e.dataTransfer.files[0];
+  if(f){const r=new FileReader();r.onload=()=>doImport(r.result,false);r.readAsText(f)}
+});
+
+// una tantum: riprova le carte a doppia faccia che prima risultavano "non trovate"
+if(!load('mtg.fix1',false)){coll.forEach(e=>{if(e.nf&&e.name.includes('//'))e.nf=false});save('mtg.coll',coll);save('mtg.fix1',true)}
+render();
+fetchMissing();
+</script>
+</body>
+</html>

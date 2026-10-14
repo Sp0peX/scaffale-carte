@@ -206,6 +206,10 @@ h2.sect small{color:var(--mut);letter-spacing:.04em;text-transform:none;font-wei
     <button class="btn" id="addbtn" style="margin-left:auto">+ Aggiungi carta</button>
   </nav>
   <div class="filters" id="filters">
+    <select id="view">
+      <option value="shelf">Vista: scaffali</option>
+      <option value="box">Vista: scatolone</option>
+    </select>
     <input type="search" id="q" placeholder="Cerca carta o testo…">
     <div class="chips" id="chips"></div>
     <select id="ftype"><option value="">Ogni tipo</option></select>
@@ -453,7 +457,7 @@ function renderBox(items){
     const [bg,fg]=TABCOL[k]||['#999','#111'];
     html+=`<section class="bay${collapsed.has(k)?' closed':''}"><div class="divtab" data-toggle="${esc(k)}" style="background:${bg};color:${fg}"><span class="chev"></span>${esc(k)}<em>${tot}</em></div><div class="stack">`+
       g.list.map(({e,c})=>{
-        const src=c?(cw>170?c.il:c.im):'';
+        const src=c?(e.pr?(cw>170?e.pr.il:e.pr.im):(cw>170?c.il:c.im)):'';
         const inner=src?`<img loading="lazy" src="${src}" alt="${esc(c.n)}">`:`<div class="ph ${e.nf?'nf':''}" style="height:var(--strip)">${esc(e.name)}</div>`;
         return `<div class="bc" data-name="${esc(e.name)}" title="${esc(e.name)}">${inner}${e.n>1?`<span class="n">×${e.n}</span>`:''}</div>`;
       }).join('')+`</div></section>`;
@@ -941,6 +945,49 @@ function openFix(e){
   search();
 }
 
+/* ---------- Traduzione del testo (la carta resta in inglese) ---------- */
+const IT=load('mtg.it',{});
+async function italianText(c){
+  const k=c.n.toLowerCase();
+  if(IT[k])return IT[k];
+  // 1) stampa italiana ufficiale su Scryfall
+  try{
+    const r=await fetch(`${SF}/cards/search?q=${encodeURIComponent('!"'+c.n+'" lang:it')}&unique=prints&order=released`);
+    if(r.ok){
+      const j=await r.json();
+      const p=j.data.find(x=>x.name.toLowerCase()===k&&(x.printed_text||(x.card_faces||[]).some(f=>f.printed_text)));
+      if(p){
+        const t=p.printed_text||p.card_faces.map(f=>f.printed_text||'').join('\n—\n');
+        return IT[k]={t,s:'testo ufficiale italiano',n:p.printed_name||''};
+      }
+    }
+  }catch(e){}
+  // 2) traduzione automatica riga per riga
+  try{
+    const out=[];
+    for(const line of c.o.split('\n')){
+      if(!line.trim()||line.trim()==='—'){out.push(line);continue}
+      const r=await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(line.slice(0,480))+'&langpair=en|it');
+      const j=await r.json();
+      if(j.responseStatus!==200)throw new Error('limite traduzioni');
+      out.push(j.responseData.translatedText);
+    }
+    return IT[k]={t:out.join('\n'),s:'traduzione automatica (può essere imprecisa)'};
+  }catch(e){return null}
+}
+async function showItalian(c){
+  const bar=$('#itbar'),pre=$('#otext');if(!bar||!pre)return;
+  const r=await italianText(c);
+  if(!$('#itbar')||$('#otext')!==pre)return;       // modale cambiata nel frattempo
+  if(!r||!r.t){bar.textContent='Traduzione non disponibile (offline o limite raggiunto): mostro il testo originale.';return}
+  save('mtg.it',IT);
+  const en=c.o;let it=true;
+  pre.textContent=r.t;
+  const paint=()=>{bar.innerHTML=`🇮🇹 ${esc(r.s)} · <a href="#" id="ittog" style="color:var(--acc)">${it?'mostra originale inglese':'mostra italiano'}</a>`;
+    $('#ittog').onclick=ev=>{ev.preventDefault();it=!it;pre.textContent=it?r.t:en;paint()}};
+  paint();
+}
+
 /* ---------- Cerca e aggiungi carte ---------- */
 function ownedCopies(card){
   const k=card.name.toLowerCase(),f=k.split(' // ')[0];
@@ -1042,11 +1089,12 @@ function openCard(name){
     <h2>${esc(c?c.n:e.name)} <span style="font-weight:400">${c?mana(c.mc):''}</span></h2>
     <div class="ty">${c?esc(c.t)+' · '+esc(e.pr?e.pr.s+' #'+e.pr.cn:c.s)+' · '+esc(c.r):'Carta non trovata su Scryfall'}</div>
     ${c?`<button class="btn sec" data-d="ver" style="margin-bottom:10px">Cambia versione / stampa</button>`:''}
-    ${c&&c.o?`<pre>${esc(c.o)}</pre>`:''}
+    ${c&&c.o?`<pre id="otext">${esc(c.o)}</pre><div class="hint" id="itbar" style="margin:-4px 0 8px">Traduco in italiano…</div>`:''}
     ${c?`<div class="leg">${Object.entries(FORMATS).map(([k,v])=>`<span class="${c.lg.includes(k)?'':'no'}">${v}${c.lg.includes(k)?'':' ✗'}</span>`).join('')}</div><div class="ty">Prezzo indicativo: ${c.p?c.p.toFixed(2)+'€':'n/d'}</div>`:''}
     <div class="qty"><button class="btn sec" data-d="-1">−</button><b>${e.n}</b><button class="btn sec" data-d="1">+</button><span style="color:var(--mut)">copie</span>
     <button class="btn warn" data-d="rm" style="margin-left:auto">Rimuovi</button></div></div>`;
   $('#modal').classList.add('on');
+  if(c&&c.o)showItalian(c);
   $('#mbox').onclick=ev=>{
     const d=ev.target.dataset.d;if(!d)return;
     if(d==='ver'){openPrints(e);return}
@@ -1089,7 +1137,11 @@ $('#main').addEventListener('click',e=>{
 });
 // openCard per carte dei mazzi non in collezione con lo stesso nome: funziona perché le carte consigliate sono possedute
 
-ui.view='shelf';
+ui.view=load('mtg.view','box');
+$('#view').value=ui.view;
+const syncView=()=>{$('#group').style.display=ui.view==='box'?'none':''};
+syncView();
+$('#view').onchange=e=>{ui.view=e.target.value;save('mtg.view',ui.view);syncView();renderShelf()};
 $('#allfold').onclick=()=>{
   const secs=[...document.querySelectorAll('#main .bay,#main .group')];
   const anyOpen=secs.some(s=>!s.classList.contains('closed'));

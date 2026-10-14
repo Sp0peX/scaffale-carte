@@ -407,7 +407,7 @@ const sorters={
 /* ---------- Render scaffali ---------- */
 function cardEl(e,c,extra=''){
   const cls='card'+(e.n>=3?' s3':e.n===2?' s2':'');
-  const inner=c&&c.im?`<img loading="lazy" src="${c.im}" alt="${esc(c.n)}">`:`<div class="ph ${e.nf?'nf':''}">${esc(e.name)}${e.nf?'<br>non trovata':'<br>…'}</div>`;
+  const inner=c&&c.im?`<img loading="lazy" src="${(e.pr&&e.pr.im)||c.im}" alt="${esc(c.n)}">`:`<div class="ph ${e.nf?'nf':''}">${esc(e.name)}${e.nf?'<br>non trovata':'<br>…'}</div>`;
   return `<div class="${cls}" data-name="${esc(e.name)}" title="${esc(e.name)}">${inner}${e.n>1?`<span class="n">×${e.n}</span>`:''}</div>`;
 }
 function renderShelf(){
@@ -464,7 +464,7 @@ function renderBox(items){
 /* ---------- Stats ---------- */
 function renderStats(){
   let uniq=coll.length,tot=0,val=0,nf=0;
-  coll.forEach(e=>{tot+=e.n;const c=C(e);if(c)val+=c.p*e.n;if(e.nf)nf++});
+  coll.forEach(e=>{tot+=e.n;const c=C(e);if(c)val+=((e.pr&&e.pr.p)||c.p)*e.n;if(e.nf)nf++});
   $('#stats').innerHTML=
     `<div class="stat"><b>${uniq}</b><span>Uniche</span></div><div class="stat"><b>${tot}</b><span>Totale</span></div>`+
     `<div class="stat"><b>${val.toFixed(0)}€</b><span>Valore stimato</span></div>`+(nf?`<div class="stat"><b style="color:#ff6b5b">${nf}</b><span>Non trovate</span></div>`:'');
@@ -994,13 +994,54 @@ function openAdd(){
 }
 $('#addbtn').onclick=openAdd;
 
+/* ---------- Scelta della versione (stampa) ---------- */
+async function openPrints(e){
+  const c=C(e);
+  $('#mbox').innerHTML=`<div style="flex:1;min-width:0;width:100%"><h2>Scegli la versione</h2>
+    <div class="ty">${esc(c.n)} · ${e.pr?'attuale: '+esc(e.pr.s)+' #'+esc(e.pr.cn):'versione predefinita'}</div>
+    <div class="row-btn" style="margin:0"><button class="btn sec" id="pback">← Indietro</button>${e.pr?'<button class="btn warn" id="preset">Torna alla predefinita</button>':''}</div>
+    <div id="pgrid" class="addgrid"><span class="hint">Carico le stampe…</span></div></div>`;
+  $('#mbox').onclick=null;
+  $('#pback').onclick=()=>openCard(e.name);
+  if($('#preset'))$('#preset').onclick=()=>{delete e.pr;save('mtg.coll',coll);render();openCard(e.name)};
+  const img=p=>{const f=p.card_faces&&p.card_faces[0];return p.image_uris||(f&&f.image_uris)||{}};
+  let prints=[];
+  try{
+    let url=`${SF}/cards/search?q=${encodeURIComponent('!"'+c.n+'"')}&unique=prints&order=released&dir=desc`;
+    for(let i=0;i<4&&url;i++){
+      const r=await fetch(url);if(!r.ok)break;
+      const j=await r.json();prints=prints.concat(j.data.filter(p=>p.name===c.n));
+      url=j.has_more?j.next_page:null;
+      if(url)await sleep(120);
+    }
+  }catch(err){}
+  const grid=$('#pgrid');if(!grid)return;
+  if(!prints.length){grid.innerHTML='<span class="hint">Nessuna stampa trovata (sei online?).</span>';return}
+  grid.innerHTML=prints.map((p,i)=>{
+    const sel=e.pr&&e.pr.id===p.id;
+    const price=p.prices&&(p.prices.eur||p.prices.usd);
+    return `<div class="res${sel?' has':''}" data-i="${i}" title="${esc(p.set_name)}">
+      <img loading="lazy" src="${img(p).small||''}" alt="">
+      <div class="ty" style="margin:4px 0 0;font-size:11px;text-align:center">${esc(p.set.toUpperCase())} #${esc(p.collector_number)}${price?' · '+price+(p.prices.eur?'€':'$'):''}</div>
+      ${sel?'<span class="n">✔</span>':''}</div>`;
+  }).join('');
+  grid.onclick=ev=>{
+    const el=ev.target.closest('.res');if(!el)return;
+    const p=prints[el.dataset.i],im=img(p);
+    e.pr={id:p.id,s:p.set.toUpperCase(),cn:p.collector_number,im:im.small||'',il:im.normal||im.small||'',
+      p:parseFloat((p.prices&&(p.prices.eur||p.prices.usd))||0)||0};
+    save('mtg.coll',coll);render();openCard(e.name);
+  };
+}
+
 function openCard(name){
   const e=coll.find(x=>x.name===name);if(!e)return;
   if(e.nf&&!C(e)){openFix(e);return}
   const c=C(e);
-  $('#mbox').innerHTML=(c?`<img src="${c.il}" alt="">`:'')+`<div style="flex:1;min-width:0">
+  $('#mbox').innerHTML=(c?`<img src="${(e.pr&&e.pr.il)||c.il}" alt="">`:'')+`<div style="flex:1;min-width:0">
     <h2>${esc(c?c.n:e.name)} <span style="font-weight:400">${c?mana(c.mc):''}</span></h2>
-    <div class="ty">${c?esc(c.t)+' · '+esc(c.s)+' · '+esc(c.r):'Carta non trovata su Scryfall'}</div>
+    <div class="ty">${c?esc(c.t)+' · '+esc(e.pr?e.pr.s+' #'+e.pr.cn:c.s)+' · '+esc(c.r):'Carta non trovata su Scryfall'}</div>
+    ${c?`<button class="btn sec" data-d="ver" style="margin-bottom:10px">Cambia versione / stampa</button>`:''}
     ${c&&c.o?`<pre>${esc(c.o)}</pre>`:''}
     ${c?`<div class="leg">${Object.entries(FORMATS).map(([k,v])=>`<span class="${c.lg.includes(k)?'':'no'}">${v}${c.lg.includes(k)?'':' ✗'}</span>`).join('')}</div><div class="ty">Prezzo indicativo: ${c.p?c.p.toFixed(2)+'€':'n/d'}</div>`:''}
     <div class="qty"><button class="btn sec" data-d="-1">−</button><b>${e.n}</b><button class="btn sec" data-d="1">+</button><span style="color:var(--mut)">copie</span>
@@ -1008,6 +1049,7 @@ function openCard(name){
   $('#modal').classList.add('on');
   $('#mbox').onclick=ev=>{
     const d=ev.target.dataset.d;if(!d)return;
+    if(d==='ver'){openPrints(e);return}
     if(d==='rm'||e.n+ +d<=0){coll=coll.filter(x=>x!==e);$('#modal').classList.remove('on')}
     else{e.n+= +d;openCard(name)}
     save('mtg.coll',coll);render();

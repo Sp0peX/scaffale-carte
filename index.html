@@ -164,6 +164,7 @@ h2.sect small{color:var(--mut);letter-spacing:.04em;text-transform:none;font-wei
 .card.miss img{filter:grayscale(1) brightness(.55)}
 .deck.meta::before{background:var(--acc)}
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.thumbs.big .card{--cw:112px;flex:0 0 112px;width:112px}
 .thumbs .card{--cw:84px;flex:0 0 84px;width:84px}
 .thumbs .card:hover{transform:translateY(-6px) scale(1.12)}
 .thumbs .card .n{right:2px;bottom:4px}
@@ -202,6 +203,7 @@ h2.sect small{color:var(--mut);letter-spacing:.04em;text-transform:none;font-wei
   <nav class="tabs" id="tabs">
     <button data-t="shelf" class="on">Scaffali</button>
     <button data-t="decks">Mazzi consigliati</button>
+    <button data-t="check">Controlla lista</button>
     <button data-t="import">Importa lista</button>
     <button class="btn" id="addbtn" style="margin-left:auto">+ Aggiungi carta</button>
   </nav>
@@ -820,6 +822,71 @@ function addCustomMeta(f){
   save('mtg.meta',customMeta);renderDecks();toast('Mazzo aggiunto');
 }
 
+/* ---------- Controlla lista: cosa ho e cosa mi manca ---------- */
+let chk=null,chkText='';
+function renderCheck(){
+  let res='';
+  if(chk){
+    const names=chk.items.map(i=>i.name);
+    if(names.some(n=>!BASICNAMES.test(n)&&!cache[n.toLowerCase()]&&!metaNF.has(n.toLowerCase()))){
+      res='<div class="empty" style="padding:30px">Carico i dati delle carte…</div>';
+      ensureCards(names).then(()=>{if(ui.tab==='check')renderCheck()});
+    }else res=checkResult();
+  }
+  $('#main').innerHTML=`<div class="panel"><h2>Controlla una lista</h2>
+    <div class="drop" id="cdrop">Trascina qui un file <b>.txt</b> / <b>.csv</b> (decklist, wishlist, export di altri siti) oppure <label style="color:var(--acc);cursor:pointer;text-decoration:underline">scegli file<input type="file" id="cfile" accept=".txt,.csv,.dec,.tsv,text/plain" hidden></label></div>
+    <textarea id="ctxt" placeholder="4 Lightning Bolt&#10;2 Counterspell&#10;1 Sol Ring&#10;…" style="height:150px"></textarea>
+    <div class="row-btn"><button class="btn" id="cgo">Controlla cosa ho</button></div>
+    <p class="hint">Non modifica la tua collezione: la lista viene solo confrontata con le carte che hai già. Funziona con lo stesso formato dell'importazione (anche il CSV di ManaBox).</p></div>`+res;
+  $('#ctxt').value=chkText;
+  const run=text=>{chkText=text;const items=parseList(text);if(!items.length){toast('Nessuna carta riconosciuta');return}chk={items};renderCheck()};
+  const readFile=f=>{const r=new FileReader();r.onload=()=>run(r.result);r.readAsText(f)};
+  $('#cgo').onclick=()=>run($('#ctxt').value);
+  $('#cfile').onchange=e=>e.target.files[0]&&readFile(e.target.files[0]);
+  const d=$('#cdrop');
+  d.ondragover=e=>{e.preventDefault();d.classList.add('over')};
+  d.ondragleave=()=>d.classList.remove('over');
+  d.ondrop=e=>{e.preventDefault();e.stopPropagation();d.classList.remove('over');e.dataTransfer.files[0]&&readFile(e.dataTransfer.files[0])};
+  const cp=$('#ccopy');if(cp)cp.onclick=()=>navigator.clipboard.writeText(chk.missingText).then(()=>toast('Lista delle mancanti copiata'));
+  const dl=$('#cdl');if(dl)dl.onclick=()=>download('mancanti.txt',chk.missingText);
+}
+function checkResult(){
+  const have={},entry={};
+  coll.forEach(e=>{
+    const c=C(e),keys=new Set([e.name.toLowerCase()]);
+    if(c)keys.add(c.n.toLowerCase());
+    [...keys].forEach(k=>{const f=k.split(' // ')[0];keys.add(f)});
+    keys.forEach(k=>{have[k]=(have[k]||0)+e.n;entry[k]=e.name});
+  });
+  const full=[],part=[],none=[];let basicsN=0,tot=0,got=0,cost=0;
+  chk.items.forEach(({name,n})=>{
+    const k=name.toLowerCase();
+    if(BASICNAMES.test(name)){basicsN+=n;return}
+    const f=k.split(' // ')[0];
+    const own=have[k]||have[f]||0;
+    const c=cache[k]||cache[f]||null;
+    const row={name,n,own,c,entry:entry[k]||entry[f]||''};
+    tot+=n;got+=Math.min(own,n);
+    if(own>=n)full.push(row);
+    else{cost+=(n-own)*(c?c.p:0);(own?part:none).push(row)}
+  });
+  const missing=part.concat(none);
+  chk.missingText=missing.map(r=>(r.n-r.own)+' '+r.name).join('\n');
+  const pct=tot?Math.round(got/tot*100):0;
+  const grid=(rows,kind)=>`<div class="thumbs big">`+rows.map(r=>{
+    const im=r.c&&r.c.im?`<img loading="lazy" src="${(r.entry&&(coll.find(e=>e.name===r.entry)||{}).pr||{}).im||r.c.im}" alt="${esc(r.name)}">`:`<div class="ph nf">${esc(r.name)}</div>`;
+    const badge=kind==='full'?`<span class="n">×${r.n}</span>`:kind==='part'?`<span class="n" style="background:#ffb347">${r.own}/${r.n}</span>`:`<span class="n" style="background:#ff6b5b;color:#190500">×${r.n}</span>`;
+    return `<div class="card${kind==='none'?' miss':''}" ${r.entry?`data-name="${esc(r.entry)}"`:''} title="${esc(r.name)} — hai ${r.own}, in lista ${r.n}">${im}${badge}</div>`;
+  }).join('')+`</div>`;
+  const sect=(title,color,rows,kind)=>rows.length?`<h2 class="sect" style="color:${color}">${title} <small>(${rows.length})</small></h2>${grid(rows,kind)}`:'';
+  return `<div class="panel"><h2>Risultato</h2>
+    <div class="meter" style="max-width:420px"><div class="bar"><i style="width:${pct}%"></i></div><small>${got}/${tot} copie possedute (${pct}%)</small></div>
+    <p style="margin:12px 0 0;line-height:1.7">✅ Le hai tutte: <b>${full.length}</b> · ◐ Ne hai solo alcune copie: <b>${part.length}</b> · ❌ Non le hai: <b>${none.length}</b>
+    ${cost?`<br>Costo stimato per completare la lista: <b>circa ${cost.toFixed(0)}€</b>`:''}${basicsN?`<br><span class="hint">${basicsN} terre base ignorate.</span>`:''}</p>
+    ${missing.length?`<div class="row-btn"><button class="btn" id="ccopy">Copia lista delle mancanti</button><button class="btn sec" id="cdl">Scarica mancanti .txt</button></div>`:'<div class="tip">Hai già tutte le carte della lista!</div>'}</div>`+
+    sect('✅ Le hai','#6fe3a2',full,'full')+sect('◐ Ne hai solo alcune','#ffb347',part,'part')+sect('❌ Non le hai','#ff9f95',none,'none');
+}
+
 /* ---------- Import tab ---------- */
 function renderImport(){
   const nf=coll.filter(e=>e.nf);
@@ -1115,7 +1182,7 @@ function setTab(t){
 }
 function render(){
   renderStats();
-  if(ui.tab==='shelf')renderShelf();else if(ui.tab==='decks')renderDecks();else renderImport();
+  if(ui.tab==='shelf')renderShelf();else if(ui.tab==='decks')renderDecks();else if(ui.tab==='check')renderCheck();else renderImport();
 }
 $('#tabs').onclick=e=>{if(e.target.dataset.t)setTab(e.target.dataset.t)};
 $('#main').addEventListener('click',e=>{
